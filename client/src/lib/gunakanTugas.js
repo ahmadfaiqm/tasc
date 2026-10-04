@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { susunTugas, tentukanUrgensi, REMINDER_MIN } from './parserAturan.js';
+import { REMINDER_MIN } from './parserAturan.js';
+import { supabase, supabaseAktif } from './supabase.js';
 import { parseParagraf } from './api.js';
 import { kirimPengingat, mintaIzinNotifikasi } from './notifikasi.js';
 
@@ -19,6 +20,15 @@ export function gunakanTugas() {
   const [tasksBaru, setTasksBaru] = useState(null);
   const hapusTerakhir = useRef(null);
   const toastTimer = useRef(null);
+
+  useEffect(() => {
+    if (!supabaseAktif()) return;
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) return;
+      const { data: rows } = await supabase.from('tasks').select('*').order('tenggat');
+      if (rows) setTasks(rows.map((r) => ({ ...r, tenggat: new Date(r.tenggat).toISOString() })));
+    });
+  }, []);
 
   const tampilToast = useCallback((pesan, aksi = null) => {
     clearTimeout(toastTimer.current);
@@ -103,4 +113,12 @@ export function gunakanTugas() {
   }, [tampilToast]);
 
   return { tasks, tasksBaru, paragraf, setParagraf, susunDariParagraf, toggleSelesai, hapusTugas, simpanEdit, toast, urungHapus, notifAktif, aktifkanNotifikasi };
+}
+
+export async function migrasiLokalKeSupabase(tasks) {
+  if (!supabaseAktif()) return;
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) return;
+  const milik = tasks.map(({ id, ...t }) => ({ ...t }));
+  if (milik.length) await supabase.from('tasks').insert(milik);
 }

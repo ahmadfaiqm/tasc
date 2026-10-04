@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { gunakanTugas } from './lib/gunakanTugas.js';
+import Auth from './components/Auth.jsx';
 import ChatAsisten from './components/ChatAsisten.jsx';
 import TaskList from './components/TaskList.jsx';
 import Toast from './components/Toast.jsx';
@@ -38,6 +39,10 @@ export default function App() {
 
       <section id="kerja">
         <p className="label mute">03 — Ruang kerja</p>
+        <div className="panel" style={{ width: 'min(1100px, 94vw)', marginBottom: 20 }}>
+          <h3>AKUN</h3>
+          <Auth />
+        </div>
         <div className="kerja-grid">
           <div className="panel">
             <h3>TULIS RENCANA</h3>
