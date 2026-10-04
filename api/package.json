@@ -1,0 +1,1 @@
+{"name": "taska-api", "private": true, "version": "0.1.0", "type": "commonjs", "scripts": {"dev": "node dev.js", "test:run": "vitest run"}, "dependencies": {"cors": "^2.8.5", "express": "^4.19.0"}, "devDependencies": {"supertest": "^7.0.0", "vitest": "^2.0.0"}}

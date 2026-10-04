@@ -1,0 +1,1 @@
+{"name": "taska", "private": true, "version": "0.1.0", "workspaces": ["client", "api"], "scripts": {"test:all": "npm --prefix client run test:run && npm --prefix api run test:run"}}
