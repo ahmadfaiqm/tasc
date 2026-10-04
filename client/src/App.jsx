@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { gunakanTugas } from './lib/gunakanTugas.js';
+import ChatAsisten from './components/ChatAsisten.jsx';
 import TaskList from './components/TaskList.jsx';
 import Toast from './components/Toast.jsx';
 
 export default function App() {
   const t = gunakanTugas();
+  const [paksaLokal, setPaksaLokal] = useState(false);
   return (
     <>
       <div className="chrome-logo">TAS<br />KA</div>
@@ -42,11 +45,14 @@ export default function App() {
             <textarea id="paragraf" rows={6} value={t.paragraf} onChange={(e) => t.setParagraf(e.target.value)}
               placeholder="Contoh: Besok rapat jam 9, lalu kirim laporan jam 2 siang" />
             <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-              <button className="btn" onClick={t.susunDariParagraf}>Susun jadi tugas</button>
+              <button className="btn" onClick={() => t.susunDariParagraf(paksaLokal)}>Susun jadi tugas</button>
               <button className="btn btn-ghost" onClick={t.aktifkanNotifikasi}>
                 {t.notifAktif ? 'Notifikasi aktif' : 'Aktifkan notifikasi'}
               </button>
             </div>
+            <label className="mute" style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 8 }}>
+              <input type="checkbox" checked={paksaLokal} onChange={(e) => setPaksaLokal(e.target.checked)} /> mode lokal saja (tanpa AI server)
+            </label>
           </div>
           <div className="panel">
             <h3>DAFTAR TUGAS</h3>
@@ -55,7 +61,7 @@ export default function App() {
         </div>
         <div className="panel kerja-chat">
           <h3>ASISTEN AI</h3>
-          <p className="mute">Chat penuh hadir di Task 7.</p>
+          <ChatAsisten tasks={t.tasks} saranOtomatis={t.tasksBaru} />
         </div>
       </section>
       <Toast toast={t.toast} onUrung={t.urungHapus} />

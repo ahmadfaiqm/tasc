@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { susunTugas, tentukanUrgensi, REMINDER_MIN } from './parserAturan.js';
+import { parseParagraf } from './api.js';
 import { kirimPengingat, mintaIzinNotifikasi } from './notifikasi.js';
 
 const KUNCI = 'taska.tasks.v1';
@@ -15,6 +16,7 @@ export function gunakanTugas() {
   const [notifAktif, setNotifAktif] = useState(
     () => 'Notification' in window && Notification.permission === 'granted',
   );
+  const [tasksBaru, setTasksBaru] = useState(null);
   const hapusTerakhir = useRef(null);
   const toastTimer = useRef(null);
 
@@ -28,17 +30,13 @@ export function gunakanTugas() {
     try { localStorage.setItem(KUNCI, JSON.stringify(tasks)); } catch { /* abaikan */ }
   }, [tasks]);
 
-  const susunDariParagraf = useCallback(() => {
-    const now = new Date().toISOString();
-    const nowMs = Date.parse(now);
-    const baru = susunTugas(paragraf, now).map((t) => ({
-      id: uid(), nama: t.nama, tenggat: t.tenggat,
-      urgensi: tentukanUrgensi(t.nama, Date.parse(t.tenggat), nowMs),
-      selesai: false, reminded: false, created_at: now, updated_at: now,
-    }));
+  const susunDariParagraf = useCallback(async (paksaLokal = false) => {
+    const { tasks: baru, mode } = await parseParagraf(paragraf, paksaLokal);
     if (!baru.length) { tampilToast('Tulis rencanamu dulu ya.'); return []; }
     setTasks((lama) => [...lama, ...baru]);
+    setTasksBaru(baru);
     setParagraf('');
+    if (mode === 'lokal' && !paksaLokal) tampilToast('Mode offline — memakai aturan lokal.');
     return baru;
   }, [paragraf, tampilToast]);
 
@@ -104,5 +102,5 @@ export function gunakanTugas() {
     return () => clearInterval(tick);
   }, [tampilToast]);
 
-  return { tasks, paragraf, setParagraf, susunDariParagraf, toggleSelesai, hapusTugas, simpanEdit, toast, urungHapus, notifAktif, aktifkanNotifikasi };
+  return { tasks, tasksBaru, paragraf, setParagraf, susunDariParagraf, toggleSelesai, hapusTugas, simpanEdit, toast, urungHapus, notifAktif, aktifkanNotifikasi };
 }
