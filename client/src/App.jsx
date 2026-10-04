@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { gunakanTugas } from './lib/gunakanTugas.js';
+import { useRef, useState } from 'react';
+import { gunakanTugas, migrasiLokalKeSupabase } from './lib/gunakanTugas.js';
 import Auth from './components/Auth.jsx';
 import ChatAsisten from './components/ChatAsisten.jsx';
 import TaskList from './components/TaskList.jsx';
@@ -8,6 +8,7 @@ import Toast from './components/Toast.jsx';
 export default function App() {
   const t = gunakanTugas();
   const [paksaLokal, setPaksaLokal] = useState(false);
+  const sudahMigrasi = useRef(false);
   return (
     <>
       <div className="chrome-logo">TAS<br />KA</div>
@@ -41,7 +42,7 @@ export default function App() {
         <p className="label mute">03 — Ruang kerja</p>
         <div className="panel" style={{ width: 'min(1100px, 94vw)', marginBottom: 20 }}>
           <h3>AKUN</h3>
-          <Auth />
+          <Auth onUser={(u) => { if (u && !sudahMigrasi.current) { sudahMigrasi.current = true; migrasiLokalKeSupabase(t.tasks, u.id); } }} />
         </div>
         <div className="kerja-grid">
           <div className="panel">
@@ -66,7 +67,7 @@ export default function App() {
         </div>
         <div className="panel kerja-chat">
           <h3>ASISTEN AI</h3>
-          <ChatAsisten tasks={t.tasks} saranOtomatis={t.tasksBaru} />
+          <ChatAsisten tasks={t.tasks} saranOtomatis={t.tasksBaru} paksaLokal={paksaLokal} />
         </div>
       </section>
       <Toast toast={t.toast} onUrung={t.urungHapus} />

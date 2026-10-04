@@ -10,6 +10,7 @@ export default function TaskItem({ task, onToggle, onHapus, onSimpan }) {
   const fmt = new Date(task.tenggat).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
   const simpan = () => {
+    if (!tgl || !jam) return;
     if (!nama.trim()) return;
     onSimpan(task.id, { nama: nama.trim(), tenggat: new Date(`${tgl}T${jam}`).toISOString(), urgensi });
     setEdit(false);
@@ -18,9 +19,10 @@ export default function TaskItem({ task, onToggle, onHapus, onSimpan }) {
   if (edit) {
     return (
       <li className="task-item">
+        <form onSubmit={(e) => { e.preventDefault(); simpan(); }} style={{ display: 'contents' }}>
         <span />
         <span>
-          <input type="text" aria-label="Nama tugas" value={nama} onChange={(e) => setNama(e.target.value)} />
+          <input type="text" aria-label="Nama tugas" value={nama} onChange={(e) => setNama(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setEdit(false); }} />
           <span style={{ display: 'flex', gap: 8, marginTop: 8 }}>
             <input type="date" aria-label="Tanggal tenggat" value={tgl} onChange={(e) => setTgl(e.target.value)} />
             <input type="time" aria-label="Jam tenggat" value={jam} onChange={(e) => setJam(e.target.value)} />
@@ -32,10 +34,11 @@ export default function TaskItem({ task, onToggle, onHapus, onSimpan }) {
           </span>
         </span>
         <span />
-        <button className="icon-btn" aria-label="Simpan" title="Simpan (Enter)" onClick={simpan}>✓</button>
-        <button className="icon-btn" aria-label="Batal" title="Batal (Escape)"
+        <button className="icon-btn" aria-label="Simpan" title="Simpan (Enter)" type="submit" onClick={simpan}>✓</button>
+        <button className="icon-btn" aria-label="Batal" title="Batal (Escape)" type="button"
           onClick={() => setEdit(false)}
           onKeyDown={(e) => { if (e.key === 'Escape') setEdit(false); }}>↩</button>
+        </form>
       </li>
     );
   }

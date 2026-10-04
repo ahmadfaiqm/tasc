@@ -30,3 +30,10 @@ Salin `.env.example` → `.env` / `.env.local` di tiap paket:
 - Tanpa OPENAI_API_KEY, fitur AI otomatis mode lokal (aturan design.md §5).
 - Sync Supabase: migrasi sekali saat login; sync real-time penuh menyusul.
 - Push saat aplikasi tertutup butuh backend always-on (di luar scope gratis).
+- Push subscription (`daftarkanPush`) is an unwired Rilis-1 stub — notifications work while the page is open.
+
+## Tes & cron
+
+npm.cmd run test:all
+# satu kali (dari client/): npx playwright install chromium
+Vercel injects CRON_SECRET as the cron Authorization bearer automatically once the env var is set.

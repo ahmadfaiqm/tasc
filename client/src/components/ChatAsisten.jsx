@@ -4,7 +4,7 @@ import { urutkanSaran } from '../lib/parserAturan.js';
 
 const SARAN_CEPAT = ['Mana yang dikerjakan dulu?', 'Apakah jadwal saya mepet?', 'Apa tugas mendesak saya?', 'Ringkas jadwal saya'];
 
-export default function ChatAsisten({ tasks, saranOtomatis }) {
+export default function ChatAsisten({ tasks, saranOtomatis, paksaLokal = false }) {
   const [pesan, setPesan] = useState([]);
   const [input, setInput] = useState('');
   const [mode, setMode] = useState('ai');
@@ -35,7 +35,7 @@ export default function ChatAsisten({ tasks, saranOtomatis }) {
     setInput('');
     setPesan((l) => [...l, { dari: 'user', teks: isi }]);
     setMengetik(true);
-    const r = await kirimChat(isi, tasks);
+    const r = await kirimChat(isi, tasks, paksaLokal);
     setMode(r.mode);
     setPesan((l) => [...l, { dari: 'ai', teks: r.jawaban }]);
     setMengetik(false);

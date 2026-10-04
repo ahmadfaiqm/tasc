@@ -5,7 +5,6 @@ import { parseParagraf } from './api.js';
 import { kirimPengingat, mintaIzinNotifikasi } from './notifikasi.js';
 
 const KUNCI = 'taska.tasks.v1';
-const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 const bacaAwal = () => {
   try { return JSON.parse(localStorage.getItem(KUNCI)) || []; } catch { return []; }
 };
@@ -20,15 +19,16 @@ export function gunakanTugas() {
   const [tasksBaru, setTasksBaru] = useState(null);
   const hapusTerakhir = useRef(null);
   const toastTimer = useRef(null);
+  const [punyaLokalAwal] = useState(() => bacaAwal().length > 0);
 
   useEffect(() => {
     if (!supabaseAktif()) return;
     supabase.auth.getSession().then(async ({ data }) => {
       if (!data.session) return;
       const { data: rows } = await supabase.from('tasks').select('*').order('tenggat');
-      if (rows) setTasks(rows.map((r) => ({ ...r, tenggat: new Date(r.tenggat).toISOString() })));
+      if (rows && !punyaLokalAwal) setTasks(rows.map((r) => ({ ...r, tenggat: new Date(r.tenggat).toISOString() })));
     });
-  }, []);
+  }, [punyaLokalAwal]);
 
   const tampilToast = useCallback((pesan, aksi = null) => {
     clearTimeout(toastTimer.current);
@@ -115,10 +115,10 @@ export function gunakanTugas() {
   return { tasks, tasksBaru, paragraf, setParagraf, susunDariParagraf, toggleSelesai, hapusTugas, simpanEdit, toast, urungHapus, notifAktif, aktifkanNotifikasi };
 }
 
-export async function migrasiLokalKeSupabase(tasks) {
+export async function migrasiLokalKeSupabase(tasks, userId) {
   if (!supabaseAktif()) return;
   const { data } = await supabase.auth.getSession();
   if (!data.session) return;
-  const milik = tasks.map(({ id, ...t }) => ({ ...t }));
+  const milik = tasks.map(({ id, ...t }) => ({ ...t, user_id: userId }));
   if (milik.length) await supabase.from('tasks').insert(milik);
 }

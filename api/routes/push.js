@@ -14,6 +14,8 @@ router.post('/subscribe', async (req, res) => {
     const jwt = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
     if (!jwt || !process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY)
       return res.json({ ok: true, tersimpan: false });
+    const sub = parseJwtSub(jwt);
+    if (!sub) return res.status(401).json({ error: 'unauthorized' });
     const r = await fetch(`${process.env.SUPABASE_URL}/rest/v1/push_subscriptions`, {
       method: 'POST',
       headers: {
@@ -22,7 +24,7 @@ router.post('/subscribe', async (req, res) => {
         'Content-Type': 'application/json',
         Prefer: 'resolution=ignore-duplicates',
       },
-      body: JSON.stringify({ user_id: parseJwtSub(jwt), subscription: req.body.subscription || {} }),
+      body: JSON.stringify({ user_id: sub, subscription: req.body.subscription || {} }),
     });
     if (!r.ok) throw new Error(`Supabase HTTP ${r.status}`);
     return res.json({ ok: true, tersimpan: true });
