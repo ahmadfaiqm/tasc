@@ -3,5 +3,5 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  test: { environment: 'jsdom', setupFiles: ['./vitest.setup.js'], env: { TZ: 'Asia/Jakarta' } },
+  test: { environment: 'jsdom', setupFiles: ['./vitest.setup.js'], env: { TZ: 'Asia/Jakarta' }, exclude: ['e2e/**', 'node_modules/**'] },
 });
