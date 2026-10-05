@@ -25,6 +25,8 @@ button:hover { background: #333; }
 .label-santai { background: #003a2b; }
 .kosong { color: #aaa; }
 .saran { margin-top: 1rem; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 1rem; }
+.akun { margin-bottom: 1rem; }
+.akun input { width: auto; min-width: 160px; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 1.5rem; background: #fff; color: #111; padding: 0.7rem 1rem; border-radius: 8px; display: flex; gap: 0.7rem; align-items: center; max-width: 90vw; }
 .toast button { background: #111; color: #fff; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

@@ -46,6 +46,9 @@ export default function App() {
   const [toast, setToast] = useState('');
   const [belumSinkron, setBelumSinkron] = useState(false);
   const [pengguna, setPengguna] = useState(null);
+  const [email, setEmail] = useState('');
+  const [sandi, setSandi] = useState('');
+  const sudahMuat = useRef(false);
   const arsipHapus = useRef(null);
   const timerToast = useRef(null);
 
@@ -85,6 +88,7 @@ export default function App() {
         setDaftar(data.map((t) => ({ ...t, id: t.id })));
         localStorage.setItem(KUNCI_LOKAL, JSON.stringify(data.map((t) => ({ ...t, id: t.id }))));
       }
+      sudahMuat.current = true;
     })();
   }, [pengguna]);
 
@@ -102,7 +106,7 @@ export default function App() {
     if (!supabase || !pengguna) return true;
     const { error } = await supabase.from('tasks').upsert(
       baris.map((t) => ({
-        id: t.id?.includes('-') && t.id.length < 30 ? undefined : t.id,
+        id: t.id,
         nama: t.nama,
         tenggat: t.tenggat,
         urgensi: t.urgensi,
@@ -121,6 +125,18 @@ export default function App() {
     setBelumSinkron(false);
     return true;
   };
+
+  // Persist tiap perubahan daftar saat login (last-write-wins via updated_at)
+  useEffect(() => {
+    if (!supabase || !pengguna || !sudahMuat.current) return;
+    const id = setTimeout(() => {
+      simpanKeSupabase(daftar).then((ok) => {
+        if (ok) localStorage.removeItem(KUNCI_ANTRI);
+      });
+    }, 500);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [daftar, pengguna]);
 
   // Retry antre tiap 30 dtk
   useEffect(() => {
@@ -226,9 +242,48 @@ export default function App() {
     tampilkanToast(izin === 'granted' ? 'Notifikasi diaktifkan' : 'Izin notifikasi ditolak — toast tetap jalan');
   };
 
+  const masuk = async (modeAuth) => {
+    if (!supabase) {
+      tampilkanToast('Supabase belum dikonfigurasi — mode tamu (localStorage)');
+      return;
+    }
+    const fn = modeAuth === 'daftar' ? supabase.auth.signUp : supabase.auth.signInWithPassword;
+    const { error } = await fn({ email, password: sandi });
+    tampilkanToast(error ? `Gagal: ${error.message}` : modeAuth === 'daftar' ? 'Cek email untuk verifikasi' : 'Masuk berhasil');
+  };
+  const keluar = async () => {
+    if (supabase) await supabase.auth.signOut();
+    setPengguna(null);
+    sudahMuat.current = false;
+  };
+
   return (
     <main className="wadah">
       <h1>Ruang Kerja</h1>
+      <section aria-label="Akun" className="kartu akun">
+        {pengguna ? (
+          <div className="baris">
+            <span>Masuk sebagai {pengguna.email}</span>
+            <button type="button" onClick={keluar}>
+              Keluar
+            </button>
+          </div>
+        ) : (
+          <div className="baris">
+            <label htmlFor="email">Email</label>
+            <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nama@email.com" />
+            <label htmlFor="sandi">Sandi</label>
+            <input id="sandi" type="password" value={sandi} onChange={(e) => setSandi(e.target.value)} />
+            <button type="button" onClick={() => masuk('masuk')}>
+              Masuk
+            </button>
+            <button type="button" onClick={() => masuk('daftar')}>
+              Daftar
+            </button>
+            {!supabase && <span className="privasi">mode tamu (localStorage)</span>}
+          </div>
+        )}
+      </section>
       {belumSinkron && <p className="banner">Belum tersinkron — perubahan disimpan lokal, retry otomatis.</p>}
       <div className="kolom">
         <section aria-label="Masukan paragraf" className="kartu">
