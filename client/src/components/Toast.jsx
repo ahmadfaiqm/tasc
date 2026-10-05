@@ -1,9 +1,13 @@
-export default function Toast({ toast, onUrung }) {
-  if (!toast) return null;
+export default function Toast({ pesan, aksiLabel, onAksi }) {
+  if (!pesan) return null;
   return (
     <div className="toast" role="status">
-      {toast.pesan}{' '}
-      {toast.aksi && <button className="btn" style={{ padding: '6px 12px', marginLeft: 8 }} onClick={onUrung}>{toast.aksi.label}</button>}
+      <span>{pesan}</span>
+      {aksiLabel && (
+        <button type="button" onClick={onAksi}>
+          {aksiLabel}
+        </button>
+      )}
     </div>
   );
 }
