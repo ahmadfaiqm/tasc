@@ -1,7 +1,3 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-
-export default defineConfig({
-  plugins: [react()],
-  test: { environment: 'jsdom', setupFiles: ['./vitest.setup.js'], env: { TZ: 'Asia/Jakarta' }, exclude: ['e2e/**', 'node_modules/**'] },
-});
+export default defineConfig({ plugins: [react()], server: { port: 5173, proxy: { '/api': 'http://localhost:3001' } }, test: { environment: 'jsdom' } });

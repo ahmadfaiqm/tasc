@@ -1,12 +1,10 @@
 {
-  "name": "taska",
+  "name": "taskman",
   "private": true,
   "version": "0.1.0",
-  "workspaces": [
-    "client",
-    "api"
-  ],
   "scripts": {
-    "test:all": "npm --prefix client run test:run && npm --prefix api run test:run"
+    "dev:client": "npm --prefix client run dev",
+    "dev:api": "npm --prefix api run dev",
+    "test:all": "npm --prefix client run test -- --run; if ($?) { npm --prefix api run test -- --run }"
   }
 }

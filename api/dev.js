@@ -1,4 +1,2 @@
 import app from './app.js';
-
-const port = process.env.PORT || 3001;
-app.listen(port, () => console.log(`TASKA api di http://localhost:${port}`));
+app.listen(3001, () => console.log('api :3001'));
