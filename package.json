@@ -5,6 +5,6 @@
   "scripts": {
     "dev:client": "npm --prefix client run dev",
     "dev:api": "npm --prefix api run dev",
-    "test:all": "npm --prefix client run test -- --run; if ($?) { npm --prefix api run test -- --run }"
+    "test:all": "npm --prefix client run test -- --run && npm --prefix api run test -- --run"
   }
 }
