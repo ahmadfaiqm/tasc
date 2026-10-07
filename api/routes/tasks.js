@@ -4,6 +4,7 @@ import prisma from '../lib/prisma.js';
 import { wajibAuth } from '../lib/auth.js';
 import { taskBuat, taskUbah } from '../lib/validasi.js';
 import { tentukanUrgency, saranPriority } from '../lib/prioritas.js';
+import { serialkanTask } from '../lib/normalisasi.js';
 
 const REMINDER_MIN = 5;
 
@@ -110,7 +111,7 @@ r.get('/', async (req, res) => {
       if (d) where.dueDate = d;
     }
     const tasks = await prisma.task.findMany({ where, orderBy: { createdAt: 'desc' } });
-    return res.json({ tasks });
+    return res.json({ tasks: tasks.map(serialkanTask) });
   } catch {
     return res.status(500).json({ error: 'gagal memuat tasks' });
   }
@@ -133,7 +134,7 @@ r.get('/:id', async (req, res) => {
       where: { id: req.params.id, userId: req.userId, deletedAt: null },
     });
     if (!t) return res.status(404).json({ error: 'task tidak ditemukan' });
-    return res.json(t);
+    return res.json(serialkanTask(t));
   } catch {
     return res.status(500).json({ error: 'gagal memuat task' });
   }
