@@ -1,8 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { parseParagraf, tentukanUrgensi, saranUrutan, REMINDER_MIN } from './lib/parserAturan.js';
-import { mintaParse } from './lib/api.js';
+import { parseParagraf, tentukanUrgency, saranPriority, saranUrutan, REMINDER_MIN } from './lib/parserAturan.js';
+import {
+  mintaParse,
+  muatTasks,
+  buatTask,
+  ubahTask,
+  hapusTask,
+  selesaikanTask,
+  bukaUlangTask,
+  ambilToken,
+  simpanToken,
+} from './lib/api.js';
 import { supabase } from './lib/supabase.js';
 import TaskList from './components/TaskList.jsx';
+import Preview from './components/Preview.jsx';
+import History from './components/History.jsx';
+import AssistantBox from './components/AssistantBox.jsx';
 import SaranUrutan from './components/SaranUrutan.jsx';
 import Toast from './components/Toast.jsx';
 
@@ -25,22 +38,107 @@ function buatId() {
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function keTugas(nama, tenggat, now) {
-  const t = tenggat instanceof Date ? tenggat : new Date(tenggat);
+function keTanggalStr(v) {
+  if (v == null || v === '') return null;
+  if (v instanceof Date) {
+    if (Number.isNaN(v.getTime())) return null;
+    const p = (n) => String(n).padStart(2, '0');
+    return `${v.getFullYear()}-${p(v.getMonth() + 1)}-${p(v.getDate())}`;
+  }
+  const s = String(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return null;
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function keJamStr(v) {
+  if (v == null) return null;
+  if (v instanceof Date) {
+    if (Number.isNaN(v.getTime())) return null;
+    return `${String(v.getUTCHours()).padStart(2, '0')}:${String(v.getUTCMinutes()).padStart(2, '0')}`;
+  }
+  const s = String(v).trim();
+  if (/^([01]\d|2[0-3]):[0-5]\d$/.test(s)) return s;
+  const m = s.match(/T(\d{2}):(\d{2})/);
+  if (m) return `${m[1]}:${m[2]}`;
+  return null;
+}
+
+// Baris API (camelCase mentah dari POST/PATCH atau serialisasi GET) -> kanonik snake_case.
+function dariApi(t) {
+  const dueDate = keTanggalStr(t.due_date ?? t.dueDate ?? t.dueDate ?? null);
   return {
-    id: buatId(),
-    nama,
-    tenggat: t.toISOString(),
-    urgensi: tentukanUrgensi(t, now, nama),
-    selesai: false,
-    reminded: false,
-    updated_at: new Date().toISOString(),
+    id: t.id,
+    title: t.title ?? t.nama ?? '',
+    description: t.description ?? null,
+    source_text: t.source_text ?? t.sourceText ?? null,
+    due_date: dueDate ?? keTanggalStr(t.tenggat),
+    due_time: keJamStr(t.due_time ?? t.dueTime ?? null),
+    time_precision: t.time_precision ?? t.timePrecision ?? 'UNSPECIFIED',
+    duration_minutes: t.duration_minutes ?? t.durationMinutes ?? null,
+    urgency: t.urgency ?? t.urgensi ?? 'LOW',
+    priority: t.priority ?? 'MEDIUM',
+    priority_source: t.priority_source ?? t.prioritySource ?? 'SYSTEM',
+    status: t.status ?? (t.selesai ? 'COMPLETED' : 'PENDING'),
+    reminded: Boolean(t.reminded),
+    updated_at: t.updatedAt ?? t.updated_at ?? new Date().toISOString(),
+  };
+}
+
+function dueMs(t) {
+  if (t.tenggat) {
+    const d = new Date(t.tenggat);
+    return Number.isNaN(d.getTime()) ? null : d.getTime();
+  }
+  const tgl = keTanggalStr(t.due_date);
+  if (!tgl) return null;
+  const jam = keJamStr(t.due_time);
+  const d = new Date(jam ? `${tgl}T${jam}:00` : `${tgl}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d.getTime();
+}
+
+function perkayaKandidat(k) {
+  const saran = saranPriority(k.title ?? '');
+  const due = dueMs({ due_date: k.due_date, due_time: k.due_time });
+  return {
+    id: k.id ?? buatId(),
+    title: k.title ?? '',
+    description: k.description ?? null,
+    source_text: k.source_text ?? k.sourceText ?? null,
+    due_date: keTanggalStr(k.due_date),
+    due_time: keJamStr(k.due_time),
+    time_precision: k.time_precision ?? 'UNSPECIFIED',
+    duration_minutes: k.duration_minutes ?? null,
+    urgency: k.urgency ?? tentukanUrgency(due ? new Date(due) : null, new Date()),
+    priority: k.priority ?? saran.priority,
+    priority_source: k.priority_source ?? saran.source,
+    alasan_prioritas: k.alasan_prioritas ?? saran.reason,
+    assumptions: Array.isArray(k.assumptions) ? k.assumptions : [],
+  };
+}
+
+function kePayload(k) {
+  return {
+    title: k.title,
+    description: k.description ?? null,
+    source_text: k.source_text ?? null,
+    due_date: keTanggalStr(k.due_date),
+    due_time: keJamStr(k.due_time),
+    time_precision: k.time_precision ?? 'UNSPECIFIED',
+    duration_minutes: k.duration_minutes ?? null,
+    urgency: k.urgency,
+    priority: k.priority,
+    priority_source: k.priority_source,
+    ai_assumption: Array.isArray(k.assumptions) && k.assumptions.length ? k.assumptions.join('; ') : null,
   };
 }
 
 export default function App() {
   const [paragraf, setParagraf] = useState('');
   const [daftar, setDaftar] = useState(() => muat(KUNCI_LOKAL, []));
+  const [preview, setPreview] = useState([]);
   const [mode, setMode] = useState('lokal');
   const [paksaLokal, setPaksaLokal] = useState(false);
   const [toast, setToast] = useState('');
@@ -58,7 +156,7 @@ export default function App() {
     timerToast.current = setTimeout(() => setToast(''), 4500);
   };
 
-  // Auth + migrasi sekali
+  // Auth (Supabase hanya untuk Auth; data lewat API).
   useEffect(() => {
     if (!supabase) return;
     supabase.auth.getSession().then(({ data }) => setPengguna(data.session?.user ?? null));
@@ -66,113 +164,119 @@ export default function App() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  const segarkanDariApi = async () => {
+    const j = await muatTasks();
+    const tasks = (j?.tasks ?? []).map(dariApi);
+    setDaftar(tasks);
+    try {
+      localStorage.setItem(KUNCI_LOKAL, JSON.stringify(tasks));
+    } catch { /* abaikan */ }
+    setBelumSinkron(false);
+  };
+
+  // Login: migrasi batch tamu via API, lalu jadikan API sumber utama.
   useEffect(() => {
     if (!supabase || !pengguna) return;
     (async () => {
-      const lokal = muat(KUNCI_LOKAL, []);
-      if (lokal.length) {
-        const baris = lokal.map((t) => ({
-          nama: t.nama,
-          tenggat: t.tenggat,
-          urgensi: t.urgensi,
-          selesai: t.selesai,
-          reminded: t.reminded,
-          user_id: pengguna.id,
-          updated_at: t.updated_at ?? new Date().toISOString(),
-        }));
-        const { error } = await supabase.from('tasks').insert(baris);
-        if (!error) localStorage.setItem(KUNCI_LOKAL, JSON.stringify([]));
-      }
-      const { data } = await supabase.from('tasks').select('*').order('tenggat');
-      if (data) {
-        setDaftar(data.map((t) => ({ ...t, id: t.id })));
-        localStorage.setItem(KUNCI_LOKAL, JSON.stringify(data.map((t) => ({ ...t, id: t.id }))));
+      try {
+        const lokal = muat(KUNCI_LOKAL, []).filter((t) => t.title || t.nama);
+        for (const t of lokal) {
+          const palk = t.title
+            ? kePayload(t)
+            : { title: t.nama, due_date: keTanggalStr(t.tenggat), due_time: null, time_precision: 'UNSPECIFIED' };
+          if (!palk.title) continue;
+          try {
+            await buatTask(palk);
+          } catch {
+            const antri = muat(KUNCI_ANTRI, []);
+            antri.push(palk);
+            try {
+              localStorage.setItem(KUNCI_ANTRI, JSON.stringify(antri));
+            } catch { /* abaikan */ }
+            setBelumSinkron(true);
+          }
+        }
+        await segarkanDariApi();
+        try {
+          localStorage.removeItem(KUNCI_ANTRI);
+        } catch { /* abaikan */ }
+      } catch {
+        setBelumSinkron(true);
       }
       sudahMuat.current = true;
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pengguna]);
 
-  // Cache lokal selalu
+  // Cache lokal saat tamu.
   useEffect(() => {
-    if (!pengguna) localStorage.setItem(KUNCI_LOKAL, JSON.stringify(daftar));
-  }, [daftar, pengguna]);
-
-  const saran = useMemo(() => {
-    const aktif = daftar.filter((t) => !t.selesai).map((t) => ({ ...t, tenggat: new Date(t.tenggat) }));
-    return saranUrutan(aktif);
-  }, [daftar]);
-
-  const simpanKeSupabase = async (baris) => {
-    if (!supabase || !pengguna) return true;
-    const { error } = await supabase.from('tasks').upsert(
-      baris.map((t) => ({
-        id: t.id,
-        nama: t.nama,
-        tenggat: t.tenggat,
-        urgensi: t.urgensi,
-        selesai: t.selesai,
-        reminded: t.reminded,
-        user_id: pengguna.id,
-        updated_at: t.updated_at ?? new Date().toISOString(),
-      })),
-      { onConflict: 'id' }
-    );
-    if (error) {
-      localStorage.setItem(KUNCI_ANTRI, JSON.stringify(baris));
-      setBelumSinkron(true);
-      return false;
+    if (!pengguna) {
+      try {
+        localStorage.setItem(KUNCI_LOKAL, JSON.stringify(daftar));
+      } catch { /* abaikan */ }
     }
-    setBelumSinkron(false);
-    return true;
-  };
-
-  // Persist tiap perubahan daftar saat login (last-write-wins via updated_at)
-  useEffect(() => {
-    if (!supabase || !pengguna || !sudahMuat.current) return;
-    const id = setTimeout(() => {
-      simpanKeSupabase(daftar).then((ok) => {
-        if (ok) localStorage.removeItem(KUNCI_ANTRI);
-      });
-    }, 500);
-    return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [daftar, pengguna]);
 
-  // Retry antre tiap 30 dtk
+  // Retry antre tiap 30 dtk.
   useEffect(() => {
     if (!supabase || !pengguna) return;
     const id = setInterval(async () => {
       const antri = muat(KUNCI_ANTRI, []);
       if (!antri.length) return;
-      const ok = await simpanKeSupabase(antri);
-      if (ok) localStorage.removeItem(KUNCI_ANTRI);
+      const sisa = [];
+      for (const palk of antri) {
+        try {
+          await buatTask(palk);
+        } catch {
+          sisa.push(palk);
+        }
+      }
+      try {
+        if (sisa.length) localStorage.setItem(KUNCI_ANTRI, JSON.stringify(sisa));
+        else localStorage.removeItem(KUNCI_ANTRI);
+      } catch { /* abaikan */ }
+      setBelumSinkron(sisa.length > 0);
+      if (!sisa.length) {
+        try {
+          await segarkanDariApi();
+        } catch { /* abaikan */ }
+      }
     }, 30000);
     return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pengguna]);
 
-  // Timer 1 dtk: pengingat + hapus-otomatis
+  // Timer 1 dtk: pengingat (hanya bila due_time != null) + hapus-otomatis.
   useEffect(() => {
     const id = setInterval(() => {
       const now = Date.now();
       setDaftar((sebelum) => {
         let berubah = false;
-        let hapus = [];
+        const hapus = [];
         const sesudah = sebelum.map((t) => {
-          if (t.selesai) return t;
-          const sisa = new Date(t.tenggat).getTime() - now;
-          if (sisa > 0 && sisa <= REMINDER_MIN * 60e3 && !t.reminded) {
+          const status = t.status ?? (t.selesai ? 'COMPLETED' : 'PENDING');
+          if (status !== 'PENDING') return t;
+          const due = dueMs(t);
+          if (due == null) return t;
+          const jam = keJamStr(t.due_time);
+          const sisa = due - now;
+          if (jam && sisa > 0 && sisa <= REMINDER_MIN * 60e3 && !t.reminded) {
             berubah = true;
-            tampilkanToast(`Segera: ${t.nama}`);
+            tampilkanToast(`Segera: ${t.title ?? t.nama}`);
             try {
               if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification(`Segera: ${t.nama}`);
+                new Notification(`Segera: ${t.title ?? t.nama}`);
               }
             } catch { /* abaikan */ }
             return { ...t, reminded: true };
           }
-          if (new Date(t.tenggat).getTime() < now) hapus.push(t);
+          if (due < now) hapus.push(t);
           return t;
-        }).filter((t) => new Date(t.tenggat).getTime() >= now || t.selesai);
+        }).filter((t) => {
+          const due = dueMs(t);
+          const status = t.status ?? (t.selesai ? 'COMPLETED' : 'PENDING');
+          return status !== 'PENDING' || due == null || due >= now;
+        });
         if (hapus.length) {
           berubah = true;
           clearTimeout(arsipHapus.current?.timer);
@@ -200,6 +304,7 @@ export default function App() {
     setToast('');
   };
 
+  // Quick Capture -> pratinjau (tanpa preview tidak ada tulis DB dari AI).
   const susun = async () => {
     if (!paragraf.trim()) {
       tampilkanToast('Tulis dulu paragraf tugasnya');
@@ -209,29 +314,115 @@ export default function App() {
     if (!paksaLokal) {
       try {
         const hasil = await mintaParse(paragraf);
-        if (hasil?.sumber === 'ai' && Array.isArray(hasil.tugas) && hasil.tugas.length) {
-          const baru = hasil.tugas.map((t) => keTugas(t.nama, t.tenggat, now));
-          setDaftar((d) => [...d, ...baru]);
-          setMode('ai');
-          tampilkanToast(`${baru.length} tugas tersusun (mode AI)`);
+        if (Array.isArray(hasil?.tasks) && hasil.tasks.length) {
+          setPreview(hasil.tasks.map(perkayaKandidat));
+          setMode(hasil.sumber === 'ai' ? 'ai' : 'lokal');
+          tampilkanToast(`${hasil.tasks.length} kandidat siap diperiksa (mode ${hasil.sumber === 'ai' ? 'AI' : 'lokal'})`);
+          return;
+        }
+        if (hasil?.sumber === 'lokal') throw new Error('fallback-lokal');
+        if (!hasil?.tasks?.length) {
+          // AI menjawab kosong -> tetap tawarkan baca lokal.
+          const lokal = parseParagraf(paragraf, now).map(perkayaKandidat);
+          setPreview(lokal);
+          setMode('lokal');
+          tampilkanToast(`${lokal.length} kandidat siap diperiksa (mode lokal)`);
           return;
         }
       } catch { /* jatuh ke lokal */ }
     }
-    const lokal = parseParagraf(paragraf, now).map((t) => keTugas(t.nama, t.tenggat, now));
-    setDaftar((d) => [...d, ...lokal]);
+    const lokal = parseParagraf(paragraf, now).map(perkayaKandidat);
+    setPreview(lokal);
     setMode('lokal');
-    tampilkanToast(`${lokal.length} tugas tersusun (mode lokal)`);
+    tampilkanToast(`${lokal.length} kandidat siap diperiksa (mode lokal)`);
   };
 
-  const ubah = (id, baru) => {
+  const adaToken = async () => Boolean(await ambilToken());
+
+  const konfirmasi = async (i) => {
+    const k = preview[i];
+    if (!k) return;
+    const payload = kePayload(k);
+    if ((await adaToken()) && pengguna) {
+      try {
+        const tersimpan = await buatTask(payload);
+        setDaftar((d) => [...d, dariApi(tersimpan)]);
+        tampilkanToast('Tugas tersimpan');
+      } catch {
+        const antri = muat(KUNCI_ANTRI, []);
+        antri.push(payload);
+        try {
+          localStorage.setItem(KUNCI_ANTRI, JSON.stringify(antri));
+        } catch { /* abaikan */ }
+        setBelumSinkron(true);
+        tampilkanToast('Gagal menyimpan — masuk antrean, retry otomatis');
+        return;
+      }
+    } else {
+      setDaftar((d) => [...d, { ...k, status: 'PENDING', reminded: false, updated_at: new Date().toISOString() }]);
+      tampilkanToast('Tugas tersimpan (tamu)');
+    }
+    setPreview((p) => p.filter((_, x) => x !== i));
+  };
+
+  const ubahPreview = (i, patch) => {
+    setPreview((p) => p.map((k, x) => (x === i ? perkayaKandidat({ ...k, ...patch }) : k)));
+  };
+
+  const batalPreview = (i) => {
+    setPreview((p) => p.filter((_, x) => x !== i));
+  };
+
+  const saran = useMemo(() => saranUrutan(daftar), [daftar]);
+
+  const ubah = async (id, baru) => {
+    const title = (baru.title ?? baru.nama ?? '').trim();
+    if (!title) return;
+    if ((await adaToken()) && pengguna) {
+      try {
+        const r = await ubahTask(id, { title });
+        setDaftar((d) => d.map((t) => (t.id === id ? dariApi(r) : t)));
+        return;
+      } catch {
+        tampilkanToast('Gagal mengubah di server');
+        return;
+      }
+    }
     setDaftar((d) =>
-      d.map((t) => (t.id === id ? { ...baru, reminded: false, updated_at: new Date().toISOString() } : t))
+      d.map((t) => (t.id === id ? { ...t, title, reminded: false, updated_at: new Date().toISOString() } : t))
     );
   };
-  const hapus = (id) => setDaftar((d) => d.filter((t) => t.id !== id));
-  const toggle = (id) =>
-    setDaftar((d) => d.map((t) => (t.id === id ? { ...t, selesai: !t.selesai } : t)));
+
+  const hapus = async (id) => {
+    if ((await adaToken()) && pengguna) {
+      try {
+        await hapusTask(id);
+      } catch {
+        tampilkanToast('Gagal menghapus di server');
+        return;
+      }
+    }
+    setDaftar((d) => d.filter((t) => t.id !== id));
+  };
+
+  const toggle = async (id) => {
+    const t = daftar.find((x) => x.id === id);
+    if (!t) return;
+    const status = t.status ?? (t.selesai ? 'COMPLETED' : 'PENDING');
+    if ((await adaToken()) && pengguna) {
+      try {
+        const r = status === 'COMPLETED' ? await bukaUlangTask(id) : await selesaikanTask(id);
+        setDaftar((d) => d.map((x) => (x.id === id ? dariApi(r) : x)));
+        return;
+      } catch {
+        tampilkanToast('Gagal mengubah status di server');
+        return;
+      }
+    }
+    setDaftar((d) =>
+      d.map((x) => (x.id === id ? { ...x, status: status === 'COMPLETED' ? 'PENDING' : 'COMPLETED' } : x))
+    );
+  };
 
   const mintaIzinNotifikasi = async () => {
     if (!('Notification' in window)) {
@@ -253,6 +444,7 @@ export default function App() {
   };
   const keluar = async () => {
     if (supabase) await supabase.auth.signOut();
+    simpanToken('');
     setPengguna(null);
     sudahMuat.current = false;
   };
@@ -323,7 +515,10 @@ export default function App() {
           <TaskList daftar={daftar} onUbah={ubah} onHapus={hapus} onToggle={toggle} />
         </section>
       </div>
+      <Preview daftar={preview} onKonfirmasi={konfirmasi} onUbah={ubahPreview} onBatal={batalPreview} />
       <SaranUrutan saran={saran} />
+      <History />
+      <AssistantBox />
       <Toast
         pesan={toast}
         aksiLabel={arsipHapus.current ? 'Urung' : undefined}

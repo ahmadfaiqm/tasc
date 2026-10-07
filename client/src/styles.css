@@ -17,16 +17,37 @@ button:hover { background: #333; }
 .banner { background: #3a2b00; border: 1px solid #a97f00; padding: 0.5rem; border-radius: 6px; }
 .daftar-tugas { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.5rem; }
 .tugas { display: grid; grid-template-columns: auto 1fr auto auto auto auto; gap: 0.5rem; align-items: center; background: #202020; padding: 0.5rem; border-radius: 6px; }
+.tugas-teks { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: baseline; }
 .tugas.selesai .tugas-nama { text-decoration: line-through; opacity: 0.6; }
 .tugas.segera .tugas-waktu { font-weight: 700; }
 .label { font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 999px; border: 1px solid #555; }
 .label-mendesak { background: #5a0000; }
 .label-sedang { background: #5a4300; }
 .label-santai { background: #003a2b; }
+.label-urgent { background: #5a0000; }
+.label-normal { background: #5a4300; }
+.label-low { background: #003a2b; }
+.label-prioritas-high { background: #4a0066; }
+.label-prioritas-medium { background: #333355; }
+.label-prioritas-low { background: #1f3a2b; }
 .kosong { color: #aaa; }
 .saran { margin-top: 1rem; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 1rem; }
 .akun { margin-bottom: 1rem; }
 .akun input { width: auto; min-width: 160px; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 1.5rem; background: #fff; color: #111; padding: 0.7rem 1rem; border-radius: 8px; display: flex; gap: 0.7rem; align-items: center; max-width: 90vw; }
 .toast button { background: #111; color: #fff; }
+.daftar-pratinjau { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.5rem; }
+.baris-pratinjau { background: #202020; padding: 0.5rem; border-radius: 6px; display: grid; gap: 0.5rem; }
+.pratinjau { margin-top: 1rem; }
+.pratinjau-teks { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: baseline; }
+.pratinjau-waktu { color: #bbb; font-size: 0.9rem; }
+.asumsi { display: block; width: 100%; font-size: 0.85rem; color: #d9b84a; }
+.edit-pratinjau { display: grid; gap: 0.5rem; }
+.riwayat { margin-top: 1rem; }
+.ringkasan { display: flex; flex-wrap: wrap; gap: 1rem; margin: 0.5rem 0 0; padding: 0; }
+.ringkasan div { background: #202020; border-radius: 6px; padding: 0.5rem 0.8rem; min-width: 8rem; }
+.ringkasan dt { font-size: 0.8rem; color: #bbb; }
+.ringkasan dd { margin: 0; font-size: 1.2rem; font-weight: 700; }
+.asisten { margin-top: 1rem; }
+.jawaban { white-space: pre-wrap; background: #202020; border-radius: 6px; padding: 0.5rem; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
