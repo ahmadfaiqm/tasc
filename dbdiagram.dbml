@@ -1,0 +1,328 @@
+
+Project TASKA {
+  database_type: "PostgreSQL"
+
+  Note: '''
+  TASKA — AI-Powered Task Manager & Personal Task Assistant
+
+  Core modules:
+  - Authentication & users
+  - Tasks
+  - Task reminders
+  - AI interactions
+  - AI recommendations
+  - AI action audit
+  - Notification settings
+  '''
+}
+
+
+// =====================================================
+// ENUMS
+// =====================================================
+
+Enum auth_provider {
+  LOCAL
+  GOOGLE
+}
+
+Enum task_status {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+Enum urgency_level {
+  URGENT
+  NORMAL
+  LOW
+}
+
+Enum priority_level {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+Enum value_source {
+  USER
+  AI
+  SYSTEM
+}
+
+Enum time_precision {
+  EXACT
+  PERIOD
+  UNSPECIFIED
+}
+
+Enum reminder_status {
+  PENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+Enum notification_type {
+  IN_APP
+  BROWSER
+  PUSH
+}
+
+Enum ai_interaction_type {
+  TASK_PARSING
+  TASK_PRIORITIZATION
+  ASSISTANT_CHAT
+  TASK_ACTION
+  PRODUCTIVITY_INSIGHT
+}
+
+Enum ai_action_type {
+  CREATE_TASK
+  UPDATE_TASK
+  COMPLETE_TASK
+  CANCEL_TASK
+  DELETE_TASK
+}
+
+Enum ai_action_status {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+
+// =====================================================
+// USERS
+// =====================================================
+
+Table users {
+  id uuid [pk]
+
+  name varchar(100)
+  email varchar(255) [unique, not null]
+  password_hash varchar(255)
+
+  auth_provider auth_provider [not null, default: 'LOCAL']
+  timezone varchar(100) [not null, default: 'Asia/Jakarta']
+
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+
+// =====================================================
+// TASKS
+// =====================================================
+
+Table tasks {
+  id uuid [pk]
+  user_id uuid [not null]
+
+  title varchar(255) [not null]
+  description text
+  source_text text
+
+  due_date date
+  due_time time
+
+  time_precision time_precision [not null, default: 'UNSPECIFIED']
+
+  duration_minutes int
+  duration_source value_source
+
+  urgency urgency_level [not null, default: 'NORMAL']
+
+  priority priority_level [not null, default: 'MEDIUM']
+  priority_source value_source [not null, default: 'SYSTEM']
+
+  status task_status [not null, default: 'PENDING']
+
+  ai_assumption text
+
+  completed_at timestamp
+  cancelled_at timestamp
+  deleted_at timestamp
+
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+
+// =====================================================
+// TASK REMINDERS
+// =====================================================
+
+Table task_reminders {
+  id uuid [pk]
+  task_id uuid [not null]
+
+  reminder_at timestamp [not null]
+
+  notification_type notification_type [not null, default: 'IN_APP']
+
+  status reminder_status [not null, default: 'PENDING']
+
+  sent_at timestamp
+  failed_at timestamp
+
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+
+// =====================================================
+// AI INTERACTIONS
+// =====================================================
+
+Table ai_interactions {
+  id uuid [pk]
+  user_id uuid [not null]
+  task_id uuid
+
+  interaction_type ai_interaction_type [not null]
+
+  model varchar(100)
+
+  input_text text
+  response_text text
+
+  latency_ms int
+
+  success boolean [not null, default: true]
+
+  error_code varchar(100)
+  error_message text
+
+  created_at timestamp [not null]
+}
+
+
+// =====================================================
+// AI RECOMMENDATIONS
+// =====================================================
+
+Table task_recommendations {
+  id uuid [pk]
+
+  user_id uuid [not null]
+  task_id uuid [not null]
+
+  recommendation_order int [not null]
+
+  reason text
+  generated_by varchar(100)
+
+  created_at timestamp [not null]
+}
+
+
+// =====================================================
+// AI ACTIONS / AUDIT
+// =====================================================
+
+Table ai_actions {
+  id uuid [pk]
+
+  user_id uuid [not null]
+  task_id uuid
+
+  action_type ai_action_type [not null]
+  status ai_action_status [not null, default: 'PENDING']
+
+  request_text text
+  action_payload json
+
+  result_message text
+  error_message text
+
+  confirmed_at timestamp
+  completed_at timestamp
+
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+
+// =====================================================
+// AI ASSUMPTIONS
+// =====================================================
+
+Table ai_assumptions {
+  id uuid [pk]
+
+  task_id uuid [not null]
+
+  field_name varchar(100) [not null]
+  assumption_text text [not null]
+
+  confidence decimal(5,4)
+
+  created_at timestamp [not null]
+}
+
+
+// =====================================================
+// NOTIFICATION SETTINGS
+// =====================================================
+
+Table notification_settings {
+  id uuid [pk]
+
+  user_id uuid [not null, unique]
+
+  enabled boolean [not null, default: false]
+
+  default_reminder_minutes int [not null, default: 5]
+
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+
+// =====================================================
+// NOTIFICATION SUBSCRIPTIONS
+// =====================================================
+
+Table notification_subscriptions {
+  id uuid [pk]
+
+  user_id uuid [not null]
+
+  notification_type notification_type [not null]
+
+  endpoint text
+  subscription_data json
+
+  active boolean [not null, default: true]
+
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+
+// =====================================================
+// RELATIONSHIPS
+// =====================================================
+
+Ref: users.id < tasks.user_id
+
+Ref: tasks.id < task_reminders.task_id
+
+Ref: users.id < ai_interactions.user_id
+Ref: tasks.id - ai_interactions.task_id
+
+Ref: users.id < task_recommendations.user_id
+Ref: tasks.id < task_recommendations.task_id
+
+Ref: users.id < ai_actions.user_id
+Ref: tasks.id - ai_actions.task_id
+
+Ref: tasks.id < ai_assumptions.task_id
+
+Ref: users.id - notification_settings.user_id
+
+Ref: users.id < notification_subscriptions.user_id
+

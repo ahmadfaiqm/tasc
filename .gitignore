@@ -1,7 +1,27 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
+build/
+
+# Env (jangan commit secret; contoh ada di *.env.example)
 .env
 .env.local
+.env.*.local
+
+# Test & report
 coverage/
-playwright-report/
 test-results/
+playwright-report/
+
+# Deploy
+.vercel/
+
+# Log
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
