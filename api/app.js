@@ -1,9 +1,12 @@
 import express from 'express';
 import cors from 'cors';
 import aiRouter from './routes/ai.js';
+import tasksRouter from './routes/tasks.js';
+import { wajibAuth } from './lib/auth.js';
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '64kb' }));
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use('/api/ai', aiRouter);
+app.use('/api/tasks', wajibAuth, tasksRouter);
 export default app;
