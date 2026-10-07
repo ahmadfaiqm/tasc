@@ -1,0 +1,203 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+generator client {
+  provider = "prisma-client-js"
+}
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+enum TaskStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+enum UrgencyLevel {
+  URGENT
+  NORMAL
+  LOW
+}
+enum PriorityLevel {
+  HIGH
+  MEDIUM
+  LOW
+}
+enum ValueSource {
+  USER
+  AI
+  SYSTEM
+}
+enum TimePrecision {
+  EXACT
+  PERIOD
+  UNSPECIFIED
+}
+enum ReminderStatus {
+  PENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+enum NotificationType {
+  IN_APP
+  BROWSER
+  PUSH
+}
+enum AiInteractionType {
+  TASK_PARSING
+  TASK_PRIORITIZATION
+  ASSISTANT_CHAT
+  TASK_ACTION
+  PRODUCTIVITY_INSIGHT
+}
+enum AiActionType {
+  CREATE_TASK
+  UPDATE_TASK
+  COMPLETE_TASK
+  CANCEL_TASK
+  DELETE_TASK
+}
+enum AiActionStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model User {
+  id           String   @id @db.Uuid
+  name         String?  @db.VarChar(100)
+  email        String   @unique @db.VarChar(255)
+  passwordHash String?  @map("password_hash") @db.VarChar(255)
+  authProvider AuthProvider @default(LOCAL) @map("auth_provider")
+  timezone     String   @default("Asia/Jakarta") @db.VarChar(100)
+  createdAt    DateTime @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime @map("updated_at") @db.Timestamp(6)
+  tasks        Task[]
+  aiInteractions AiInteraction[]
+  recommendations TaskRecommendation[]
+  aiActions    AiAction[]
+  notifSettings NotificationSetting?
+  notifSubs    NotificationSubscription[]
+  @@map("users")
+}
+model Task {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String   @db.VarChar(255)
+  description    String?  @db.Text
+  sourceText     String?  @map("source_text") @db.Text
+  dueDate        DateTime? @map("due_date") @db.Date
+  dueTime        DateTime? @map("due_time") @db.Time
+  timePrecision  TimePrecision @default(UNSPECIFIED) @map("time_precision")
+  durationMinutes Int?    @map("duration_minutes")
+  durationSource ValueSource? @map("duration_source")
+  urgency        UrgencyLevel @default(NORMAL)
+  priority       PriorityLevel @default(MEDIUM)
+  prioritySource ValueSource @default(SYSTEM) @map("priority_source")
+  status         TaskStatus @default(PENDING)
+  aiAssumption   String?  @map("ai_assumption") @db.Text
+  completedAt    DateTime? @map("completed_at") @db.Timestamp(6)
+  cancelledAt    DateTime? @map("cancelled_at") @db.Timestamp(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamp(6)
+  createdAt      DateTime @map("created_at") @default(now()) @db.Timestamp(6)
+  updatedAt      DateTime @map("updated_at") @default(now()) @db.Timestamp(6)
+  reminders      TaskReminder[]
+  assumptions    AiAssumption[]
+  @@index([userId, dueDate])
+  @@map("tasks")
+}
+model TaskReminder {
+  id               String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId           String @map("task_id") @db.Uuid
+  task             Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  reminderAt       DateTime @map("reminder_at") @db.Timestamp(6)
+  notificationType NotificationType @default(IN_APP) @map("notification_type")
+  status           ReminderStatus @default(PENDING)
+  sentAt           DateTime? @map("sent_at") @db.Timestamp(6)
+  failedAt         DateTime? @map("failed_at") @db.Timestamp(6)
+  createdAt        DateTime @map("created_at") @default(now()) @db.Timestamp(6)
+  updatedAt        DateTime @map("updated_at") @default(now()) @db.Timestamp(6)
+  @@map("task_reminders")
+}
+model AiInteraction {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String @map("user_id") @db.Uuid
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId      String? @map("task_id") @db.Uuid
+  interactionType AiInteractionType @map("interaction_type")
+  model       String? @db.VarChar(100)
+  inputText   String? @map("input_text") @db.Text
+  responseText String? @map("response_text") @db.Text
+  latencyMs   Int?    @map("latency_ms")
+  success     Boolean @default(true)
+  errorCode   String? @map("error_code") @db.VarChar(100)
+  errorMessage String? @map("error_message") @db.Text
+  createdAt   DateTime @map("created_at") @default(now())
+  @@map("ai_interactions")
+}
+model TaskRecommendation {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String @map("user_id") @db.Uuid
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId    String @map("task_id") @db.Uuid
+  recommendationOrder Int @map("recommendation_order")
+  reason    String? @db.Text
+  generatedBy String? @map("generated_by") @db.VarChar(100)
+  createdAt DateTime @map("created_at") @default(now())
+  @@map("task_recommendations")
+}
+model AiAction {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String @map("user_id") @db.Uuid
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId       String? @map("task_id") @db.Uuid
+  actionType   AiActionType @map("action_type")
+  status       AiActionStatus @default(PENDING)
+  requestText  String? @map("request_text") @db.Text
+  actionPayload Json?  @map("action_payload")
+  resultMessage String? @map("result_message") @db.Text
+  errorMessage String? @map("error_message") @db.Text
+  confirmedAt  DateTime? @map("confirmed_at") @db.Timestamp(6)
+  completedAt  DateTime? @map("completed_at") @db.Timestamp(6)
+  createdAt    DateTime @map("created_at") @default(now())
+  updatedAt    DateTime @map("updated_at") @default(now())
+  @@map("ai_actions")
+}
+model AiAssumption {
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId         String @map("task_id") @db.Uuid
+  task           Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  fieldName      String @map("field_name") @db.VarChar(100)
+  assumptionText String @map("assumption_text") @db.Text
+  confidence     Decimal? @db.Decimal(5, 4)
+  createdAt      DateTime @map("created_at") @default(now())
+  @@map("ai_assumptions")
+}
+model NotificationSetting {
+  id                     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                 String @unique @map("user_id") @db.Uuid
+  user                   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enabled                Boolean @default(false)
+  defaultReminderMinutes Int @default(5) @map("default_reminder_minutes")
+  createdAt              DateTime @map("created_at") @default(now())
+  updatedAt              DateTime @map("updated_at") @default(now())
+  @@map("notification_settings")
+}
+model NotificationSubscription {
+  id               String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String @map("user_id") @db.Uuid
+  user             User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notificationType NotificationType @map("notification_type")
+  endpoint         String? @db.Text
+  subscriptionData Json? @map("subscription_data")
+  active           Boolean @default(true)
+  createdAt        DateTime @map("created_at") @default(now())
+  updatedAt        DateTime @map("updated_at") @default(now())
+  @@map("notification_subscriptions")
+}
