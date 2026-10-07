@@ -27,7 +27,9 @@ function ringkas(tasks, now) {
       if (due && due < now) overdue += 1;
     }
     if (t.urgency === 'URGENT') urgent += 1;
-    const kunci = t.dueDate ? new Date(t.dueDate).toISOString().slice(0, 10) : 'tanpa-tanggal';
+    // byDay hanya untuk yang bertanggal; tanpa dueDate tetap dihitung di total (bukan overdue).
+    if (!t.dueDate) continue;
+    const kunci = new Date(t.dueDate).toISOString().slice(0, 10);
     byDay[kunci] = (byDay[kunci] ?? 0) + 1;
   }
   const total = tasks.length;
@@ -46,7 +48,14 @@ async function historiBulan(userId, year, month) {
   const awal = new Date(Date.UTC(year, month - 1, 1));
   const akhir = new Date(Date.UTC(year, month, 1));
   const tasks = await prisma.task.findMany({
-    where: { userId, deletedAt: null, dueDate: { gte: awal, lt: akhir } },
+    where: {
+      userId,
+      deletedAt: null,
+      OR: [
+        { dueDate: { gte: awal, lt: akhir } },
+        { dueDate: null, createdAt: { gte: awal, lt: akhir } },
+      ],
+    },
   });
   return ringkas(tasks, new Date());
 }

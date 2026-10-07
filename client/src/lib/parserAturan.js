@@ -4,7 +4,7 @@
 export const REMINDER_MIN = 5;
 
 const HARI_IDX = {
-  minggu: 0, ahad: 0, senin: 1, selasa: 2, rabu: 3, kamis: 4, 'jumat': 5, 'jum at': -1, sabtu: 6,
+  minggu: 0, ahad: 0, senin: 1, selasa: 2, rabu: 3, kamis: 4, 'jumat': 5, sabtu: 6,
 };
 
 function offsetHari(teks, now) {
@@ -30,7 +30,7 @@ function offsetHari(teks, now) {
 
 function terapkanPm(h, penanda) {
   const p = String(penanda ?? '').toLowerCase();
-  if ((p === 'sore' || p === 'malam') && h >= 1 && h <= 11) return h + 12;
+  if ((p === 'siang' || p === 'sore' || p === 'malam') && h >= 1 && h <= 11) return h + 12;
   if (p === 'malam' && h === 12) return 0;
   if (p === 'pagi' && h === 12) return 0;
   return h;
@@ -44,14 +44,10 @@ function parseJamSegment(seg) {
   let m;
   // setengah H (+ penanda): "setengah 4 sore" -> (4-1):30 + pm = 15:30
   if ((m = seg.match(/setengah\s*(\d{1,2})(?:\s*(pagi|siang|sore|malam|subuh))?/i))) {
-    let h = parseInt(m[1], 10) - 1;
-    if (h < 0) h = 0;
-    h = terapkanPm(h === 0 ? 12 : h, m[2]);
-    if (h === 12 && !m[2]) { /* tengah malam nuansa, biarkan */ }
-    // terapkanPm(12,...) bila h awal 0 -> 12; "setengah 1" -> 00:30
+    // "setengah 1" -> 00:30; "setengah 4 sore" -> (4-1):30 + pm = 15:30
     let hh = parseInt(m[1], 10) - 1;
-    hh = terapkanPm(hh < 0 ? 0 : hh, m[2]);
-    // normalisasi: bila hasil 24+ ? tidak mungkin
+    if (hh < 0) hh = 0;
+    hh = terapkanPm(hh, m[2]);
     return { kind: 'exact', h: hh, mnt: 30 };
   }
   // jam|pukul H[:.]MM (+ penanda)
@@ -96,7 +92,7 @@ function bersihkanJudul(seg) {
   s = s.replace(/\bakhir pekan\b|\bakhir minggu\b|\bweekend\b/gi, ' ');
   s = s.replace(/\bnanti\s*(?:sore|malam|siang|pagi)\b/gi, ' ');
   // periode telanjang hanya bila bukan satu-satunya kata bermakna? buang agar judul bersih
-  s = s.replace(/\b(siangnya|sor enya|sorenya|malamnya|paginya)\b/gi, ' ');
+  s = s.replace(/\b(siangnya|sorenya|malamnya|paginya)\b/gi, ' ');
   s = s.replace(/\s+/g, ' ').replace(/^[\s,.;:—-]+|[\s,.;:—-]+$/g, '').trim();
   // buang penanda periode sisa yang berdiri sendiri di awal ("siangnya beli sepatu" -> "beli sepatu")
   s = s.replace(/^(siang|sore|malam|pagi|subuh)\b\s*/i, '').trim();

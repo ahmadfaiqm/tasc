@@ -7,6 +7,47 @@ import { tentukanUrgency, saranPriority } from '../lib/prioritas.js';
 import { serialkanTask } from '../lib/normalisasi.js';
 
 const REMINDER_MIN = 5;
+const ZONA_DEFAULT = 'Asia/Jakarta';
+
+// Offset menit vs UTC untuk zona yang dikenal (tanpa DST); tak dikenal -> default Asia/Jakarta (+7).
+function offsetMenitZona(tz) {
+  switch (String(tz ?? '')) {
+    case 'Asia/Jakarta':
+    case 'Asia/Pontianak':
+      return 7 * 60;
+    case 'Asia/Makassar':
+      return 8 * 60;
+    case 'Asia/Jayapura':
+      return 9 * 60;
+    case 'UTC':
+    case 'Etc/UTC':
+      return 0;
+    default:
+      return 7 * 60;
+  }
+}
+
+// Gabung dueDate (@db.Date, kalender) + dueTime (@db.Time / 'HH:MM') sebagai jam dinding
+// di zona user -> instan UTC. (gabungDue lama memperlakukan jam dinding sebagai UTC.)
+function gabungDueZona(dueDate, dueTime, tz) {
+  if (!dueDate || !dueTime) return null;
+  const d = new Date(dueDate);
+  if (Number.isNaN(d.getTime())) return null;
+  let hh, mm;
+  if (dueTime instanceof Date) {
+    if (Number.isNaN(dueTime.getTime())) return null;
+    hh = dueTime.getUTCHours();
+    mm = dueTime.getUTCMinutes();
+  } else {
+    const m = String(dueTime).trim().match(/^(\d{1,2}):(\d{2})/);
+    if (!m) return null;
+    hh = Number(m[1]);
+    mm = Number(m[2]);
+    if (hh > 23 || mm > 59) return null;
+  }
+  const off = offsetMenitZona(tz ?? ZONA_DEFAULT);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), hh, mm) - off * 60e3);
+}
 
 const r = Router();
 r.use(wajibAuth);
@@ -75,15 +116,21 @@ function bangunCreate(body, now) {
 r.post('/sweep', async (req, res) => {
   try {
     const now = new Date();
+    const [user, setting] = await Promise.all([
+      prisma.user.findUnique({ where: { id: req.userId }, select: { timezone: true } }).catch(() => null),
+      prisma.notificationSetting.findUnique({ where: { userId: req.userId } }).catch(() => null),
+    ]);
+    const tz = user?.timezone ?? ZONA_DEFAULT;
+    const menit = setting?.defaultReminderMinutes ?? REMINDER_MIN;
     const tasks = await prisma.task.findMany({
       where: { userId: req.userId, deletedAt: null, status: 'PENDING', dueDate: { not: null }, dueTime: { not: null } },
       select: { id: true, dueDate: true, dueTime: true },
     });
     let dibuat = 0;
     for (const t of tasks) {
-      const due = gabungDue(t.dueDate, t.dueTime);
+      const due = gabungDueZona(t.dueDate, t.dueTime, tz);
       if (!due) continue;
-      const reminderAt = new Date(due.getTime() - REMINDER_MIN * 60e3);
+      const reminderAt = new Date(due.getTime() - menit * 60e3);
       if (reminderAt > now) continue;
       const ada = await prisma.taskReminder.findFirst({
         where: { taskId: t.id, reminderAt, status: { in: ['PENDING', 'SENT'] } },
@@ -122,7 +169,7 @@ r.post('/', async (req, res) => {
   if (error) return res.status(400).json({ error: 'validasi gagal', detail: error.issues });
   try {
     const t = await prisma.task.create({ data: { ...data, userId: req.userId } });
-    return res.status(201).json(t);
+    return res.status(201).json(serialkanTask(t));
   } catch {
     return res.status(500).json({ error: 'gagal membuat task' });
   }
@@ -178,7 +225,7 @@ r.patch('/:id', async (req, res) => {
       if (d.urgency === undefined) patch.urgency = tentukanUrgency(due, new Date());
     }
     const t = await prisma.task.update({ where: { id: lama.id }, data: patch });
-    return res.json(t);
+    return res.json(serialkanTask(t));
   } catch {
     return res.status(500).json({ error: 'gagal mengubah task' });
   }
@@ -203,12 +250,12 @@ r.post('/:id/complete', async (req, res) => {
       where: { id: req.params.id, userId: req.userId, deletedAt: null },
     });
     if (!lama) return res.status(404).json({ error: 'task tidak ditemukan' });
-    if (lama.status === 'COMPLETED') return res.json(lama);
+    if (lama.status === 'COMPLETED') return res.json(serialkanTask(lama));
     const t = await prisma.task.update({
       where: { id: lama.id },
       data: { status: 'COMPLETED', completedAt: new Date(), cancelledAt: null },
     });
-    return res.json(t);
+    return res.json(serialkanTask(t));
   } catch {
     return res.status(500).json({ error: 'gagal menyelesaikan task' });
   }
@@ -220,12 +267,12 @@ r.post('/:id/cancel', async (req, res) => {
       where: { id: req.params.id, userId: req.userId, deletedAt: null },
     });
     if (!lama) return res.status(404).json({ error: 'task tidak ditemukan' });
-    if (lama.status === 'CANCELLED') return res.json(lama);
+    if (lama.status === 'CANCELLED') return res.json(serialkanTask(lama));
     const t = await prisma.task.update({
       where: { id: lama.id },
       data: { status: 'CANCELLED', cancelledAt: new Date() },
     });
-    return res.json(t);
+    return res.json(serialkanTask(t));
   } catch {
     return res.status(500).json({ error: 'gagal membatalkan task' });
   }
@@ -237,12 +284,12 @@ r.post('/:id/reopen', async (req, res) => {
       where: { id: req.params.id, userId: req.userId, deletedAt: null },
     });
     if (!lama) return res.status(404).json({ error: 'task tidak ditemukan' });
-    if (lama.status === 'PENDING') return res.json(lama);
+    if (lama.status === 'PENDING') return res.json(serialkanTask(lama));
     const t = await prisma.task.update({
       where: { id: lama.id },
       data: { status: 'PENDING', completedAt: null, cancelledAt: null },
     });
-    return res.json(t);
+    return res.json(serialkanTask(t));
   } catch {
     return res.status(500).json({ error: 'gagal membuka ulang task' });
   }

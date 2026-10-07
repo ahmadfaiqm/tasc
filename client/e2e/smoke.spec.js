@@ -10,7 +10,7 @@ test('tulis -> pratinjau -> konfirmasi -> centang -> riwayat terlihat', async ({
   await expect(pratinjau.getByText(/jam belum ditentukan/i).first()).toBeVisible();
   // Confirm kandidat pertama -> masuk daftar.
   await pratinjau.getByRole('button', { name: /konfirmasi/i }).first().click();
-  await expect(page.getByText(/tersimpan/i)).toBeVisible({ timeout: 10000 });
+  await expect(page.locator('[role="status"]', { hasText: /tersimpan/i })).toBeVisible({ timeout: 10000 });
   const pertama = page.locator('.daftar-tugas .tugas').first();
   await expect(pertama).toBeVisible();
   await pertama.getByRole('checkbox').check();

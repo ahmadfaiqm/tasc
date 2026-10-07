@@ -1,6 +1,6 @@
-// client/e2e/eval-prd.spec.js (vitest dataset, bukan browser)
+// client/src/lib/evalPrd.test.js (vitest dataset, ikut test:all)
 import { describe, it, expect } from 'vitest';
-import { parseParagraf } from '../src/lib/parserAturan.js';
+import { parseParagraf } from './parserAturan.js';
 const S = ['besok jam 4 beli sepatu', 'jam 1 siang meeting', 'setengah 4 sore olahraga', 'nanti malam kerjain laporan', 'besok deadline tugas', 'senin depan ketemu dosen'];
 describe('eval PRD', () => {
   it('semua sample menghasilkan >=1 task tanpa fake-time', () => {
