@@ -18,5 +18,5 @@ test('tulis -> pratinjau -> konfirmasi -> centang -> riwayat terlihat', async ({
   // Saran + riwayat + asisten read-only terlihat.
   await expect(page.getByLabel(/saran urutan/i)).toBeVisible();
   await expect(page.getByLabel(/riwayat bulanan/i)).toBeVisible();
-  await expect(page.getByLabel(/asisten/i)).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Asisten', exact: true })).toBeVisible();
 });

@@ -378,9 +378,15 @@ export default function App() {
   const ubah = async (id, baru) => {
     const title = (baru.title ?? baru.nama ?? '').trim();
     if (!title) return;
+    const patch = {
+      title,
+      due_date: keTanggalStr(baru.due_date ?? baru.tenggat) ?? null,
+      due_time: keJamStr(baru.due_time) ?? null,
+      urgency: baru.urgency ?? baru.urgensi ?? undefined,
+    };
     if ((await adaToken()) && pengguna) {
       try {
-        const r = await ubahTask(id, { title });
+        const r = await ubahTask(id, patch);
         setDaftar((d) => d.map((t) => (t.id === id ? dariApi(r) : t)));
         return;
       } catch {
@@ -389,7 +395,17 @@ export default function App() {
       }
     }
     setDaftar((d) =>
-      d.map((t) => (t.id === id ? { ...t, title, reminded: false, updated_at: new Date().toISOString() } : t))
+      d.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              ...patch,
+              time_precision: baru.time_precision ?? t.time_precision ?? 'UNSPECIFIED',
+              reminded: false,
+              updated_at: new Date().toISOString(),
+            }
+          : t
+      )
     );
   };
 
@@ -451,8 +467,45 @@ export default function App() {
 
   return (
     <main className="wadah">
-      <h1>Ruang Kerja</h1>
-      <section aria-label="Akun" className="kartu akun">
+      <nav aria-label="Navigasi utama" className="nav-tetap">
+        <a className="logo-tumpuk" href="#atas">
+          TAS
+          <br />
+          KA
+        </a>
+        <div className="nav-tautan">
+          <a href="#folder">Folder</a>
+          <a href="#kerja">Coba</a>
+        </div>
+      </nav>
+      <div className="tepi-sosial" aria-hidden="true">
+        <span>TASKA</span>
+      </div>
+      <span className="tepi-gulir" aria-hidden="true">
+        Gulir
+      </span>
+
+      <section id="atas" aria-label="Hero" className="bagian hero">
+        <p className="nav-nomor">01</p>
+        <h1 className="wordmark">TASKA</h1>
+        <p className="tagline">Tulis rencana dengan bahasa sehari-hari — TASKA menyusunnya jadi tugas, menentukan urgensi, dan menyarankan urutan pengerjaan.</p>
+        <a href="#kerja">
+          <button type="button" className="primer">
+            Coba sekarang
+          </button>
+        </a>
+      </section>
+
+      <section id="folder" aria-label="Folder bulanan" className="bagian">
+        <p className="nav-nomor">02</p>
+        <History daftar={daftar} />
+      </section>
+
+      <section id="kerja" aria-label="Ruang kerja" className="bagian">
+        <p className="nav-nomor">03</p>
+        <h2>Ruang Kerja</h2>
+        <p className="mode-line">{pengguna ? `Mode akun — ${pengguna.email}` : 'Mode tamu — tugas tersimpan di browser'}</p>
+        <section aria-label="Akun" className="kartu akun">
         {pengguna ? (
           <div className="baris">
             <span>Masuk sebagai {pengguna.email}</span>
@@ -511,19 +564,19 @@ export default function App() {
           </div>
         </section>
         <section aria-label="Daftar tugas" className="kartu">
-          <h2>Daftar tugas</h2>
+          <h3>Daftar tugas</h3>
           <TaskList daftar={daftar} onUbah={ubah} onHapus={hapus} onToggle={toggle} />
         </section>
       </div>
       <Preview daftar={preview} onKonfirmasi={konfirmasi} onUbah={ubahPreview} onBatal={batalPreview} />
       <SaranUrutan saran={saran} />
-      <History />
       <AssistantBox />
       <Toast
         pesan={toast}
         aksiLabel={arsipHapus.current ? 'Urung' : undefined}
         onAksi={arsipHapus.current ? urungkanHapus : undefined}
       />
+      </section>
     </main>
   );
 }

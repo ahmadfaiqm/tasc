@@ -1,6 +1,7 @@
 // client/src/components/Preview.jsx
 // Daftar kandidat hasil parse (belum disimpan) + Confirm/Edit/Cancel per baris.
 import { useState } from 'react';
+import { labelUrgensi } from '../lib/urgensi.js';
 
 function keTanggalStr(v) {
   if (v == null || v === '') return '';
@@ -65,7 +66,7 @@ export default function Preview({ daftar, onKonfirmasi, onUbah, onBatal }) {
 
   return (
     <section aria-label="Pratinjau tugas" className="kartu pratinjau">
-      <h2>Pratinjau ({daftar.length})</h2>
+      <h3>Pratinjau ({daftar.length})</h3>
       <p className="privasi">Periksa dulu — tugas baru tersimpan setelah Anda menekan Konfirmasi.</p>
       <ul className="daftar-pratinjau">
         {daftar.map((k, i) => (
@@ -114,7 +115,7 @@ export default function Preview({ daftar, onKonfirmasi, onUbah, onBatal }) {
                       {k.alasan_prioritas ? ` — ${k.alasan_prioritas}` : k.reason ? ` — ${k.reason}` : ''}
                     </span>
                   )}
-                  {k.urgency && <span className={`label label-${String(k.urgency).toLowerCase()}`}>{k.urgency}</span>}
+                  {k.urgency && (() => { const l = labelUrgensi(k.urgency); return <span className={`label ${l.kelas}`}>{l.teks}</span>; })()}
                 </div>
                 <div className="baris">
                   <button type="button" onClick={() => onKonfirmasi(i)}>
