@@ -1,5 +1,24 @@
 {
-  "rewrites": [{ "source": "/api/(.*)", "destination": "/api/index.js" }],
-  "buildCommand": "npm --prefix client run build",
-  "outputDirectory": "client/dist"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "api": {
+      "root": "api",
+      "framework": "express",
+      "buildCommand": "npx prisma generate --schema=../prisma/schema.prisma"
+    },
+    "client": {
+      "root": "client",
+      "framework": "vite"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": { "service": "api" }
+    },
+    {
+      "source": "/(.*)",
+      "destination": { "service": "client" }
+    }
+  ]
 }

@@ -67,7 +67,8 @@ Salin `*.env.example` → `.env` di tiap paket (jangan commit `.env`):
 1. Supabase SQL Editor: jalankan `supabase/schema.sql` (reset total 9 tabel + RLS).
 2. Supabase Auth → URL Configuration: daftarkan redirect (produksi + `http://localhost:5173`).
 3. Vercel: import repo, isi 8 env di atas, Deploy.
-4. `npx --prefix api prisma db push --schema=../prisma/schema.prisma`
+4. `npx --prefix api prisma db push --schema=prisma/schema.prisma` (dari root;
+   atau dari `api/`: `npx prisma db push --schema=../prisma/schema.prisma`)
    (hanya ke DB yang sudah di-reset; jangan ke DB berisi data penting).
 5. Verifikasi: RLS menolak baca silang antar-user; 403 lintas-user;
    reminder terkirim sekali (idempoten).
