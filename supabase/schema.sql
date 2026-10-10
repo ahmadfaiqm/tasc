@@ -48,6 +48,7 @@ create table users (
   password_hash varchar(255),
   auth_provider auth_provider not null default 'LOCAL',
   timezone varchar(100) not null default 'Asia/Jakarta',
+  ai_consent boolean not null default false,
   created_at timestamp not null default now(),
   updated_at timestamp not null default now()
 );

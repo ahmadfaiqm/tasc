@@ -75,6 +75,7 @@ model User {
   passwordHash String?  @map("password_hash") @db.VarChar(255)
   authProvider AuthProvider @default(LOCAL) @map("auth_provider")
   timezone     String   @default("Asia/Jakarta") @db.VarChar(100)
+  aiConsent    Boolean  @default(false) @map("ai_consent")
   createdAt    DateTime @map("created_at") @db.Timestamp(6)
   updatedAt    DateTime @map("updated_at") @db.Timestamp(6)
   tasks        Task[]
