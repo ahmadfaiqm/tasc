@@ -15,9 +15,9 @@ export default function Dashboard({ nama, email, tamu, bento, onKeluar, tugas, r
         <span className="auth-logo" style={{ position: 'static' }}>
           <span className="centang">✓</span> Taska
         </span>
-        <nav aria-label="Dashboard" className="nav-pil">
+        <nav aria-label="Dashboard" className="nav-pil" role="tablist">
           {tabs.map(([id, label]) => (
-            <button key={id} type="button" aria-selected={tab === id} onClick={() => setTab(id)}>
+            <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>
               {label}
             </button>
           ))}

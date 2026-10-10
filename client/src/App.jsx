@@ -178,6 +178,19 @@ export default function App() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // Muat profil setiap sesi tersedia (restore, Google, password).
+  useEffect(() => {
+    if (!pengguna) return;
+    (async () => {
+      try {
+        const p = await muatProfil();
+        setProfil({ nama: p?.nama ?? '', aiConsent: Boolean(p?.aiConsent) });
+      } catch {
+        setProfil({ nama: '', aiConsent: false });
+      }
+    })();
+  }, [pengguna]);
+
   const segarkanDariApi = async () => {
     const j = await muatTasks();
     const tasks = (j?.tasks ?? []).map(dariApi);
@@ -571,8 +584,10 @@ export default function App() {
         tugas={
           <>
             {belumSinkron && <p className="banner">Belum tersinkron — perubahan disimpan lokal, retry otomatis.</p>}
-            <div className="kolom">
-              <section aria-label="Masukan paragraf" className="kartu">
+            <div className="kolom-dash">
+              <div>
+                <div className="kolom">
+                  <section aria-label="Masukan paragraf" className="kartu">
                 <label htmlFor="paragraf">Paragraf tugas (Bahasa Indonesia)</label>
                 <textarea
                   id="paragraf"
@@ -608,10 +623,12 @@ export default function App() {
                 <h3>Daftar tugas</h3>
                 <TaskList daftar={daftar} onUbah={ubah} onHapus={hapus} onToggle={toggle} />
               </section>
+                </div>
+                <Preview daftar={preview} onKonfirmasi={konfirmasi} onUbah={ubahPreview} onBatal={batalPreview} />
+                <SaranUrutan saran={saran} />
+              </div>
+              <div className="asisten-sticky"><AssistantBox /></div>
             </div>
-            <Preview daftar={preview} onKonfirmasi={konfirmasi} onUbah={ubahPreview} onBatal={batalPreview} />
-            <SaranUrutan saran={saran} />
-            <AssistantBox />
           </>
         }
         rekap={<History daftar={daftar} />}

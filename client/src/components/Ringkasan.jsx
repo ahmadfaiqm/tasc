@@ -24,7 +24,7 @@ export default function Ringkasan({ nama, bento }) {
           <p className="mikro">BERIKUTNYA</p>
           {bento.berikut ? (
             <p>
-              {bento.berikut.jam} · {bento.berikut.hari} · {bento.berikut.nama}
+              {[bento.berikut.jam, bento.berikut.hari, bento.berikut.nama].filter(Boolean).join(' · ')}
             </p>
           ) : (
             <p>Tidak ada jadwal</p>

@@ -33,12 +33,13 @@ r.patch('/', async (req, res) => {
   const { nama, aiConsent, email } = cek.data;
   try {
     const ada = await prisma.user.findUnique({ where: { id: req.userId } });
-    if (!ada && !email) return res.status(400).json({ error: 'email wajib untuk profil baru' });
-    const profil = await prisma.user.upsert({
-      where: { id: req.userId },
-      update: { name: nama, aiConsent },
-      create: { id: req.userId, email, name: nama, aiConsent },
-    });
+    let profil;
+    if (ada) {
+      profil = await prisma.user.update({ where: { id: req.userId }, data: { name: nama, aiConsent } });
+    } else {
+      if (!email) return res.status(400).json({ error: 'email wajib untuk profil baru' });
+      profil = await prisma.user.create({ data: { id: req.userId, email, name: nama, aiConsent } });
+    }
     return res.json(serial(profil));
   } catch {
     return res.status(500).json({ error: 'gagal menyimpan profil' });

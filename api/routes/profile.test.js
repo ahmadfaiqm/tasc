@@ -45,10 +45,18 @@ describe('profile', () => {
   });
   it('PATCH valid -> upsert milik sendiri -> 200', async () => {
     vi.spyOn(prisma.user, 'findUnique').mockResolvedValue(null);
-    const upsert = vi.spyOn(prisma.user, 'upsert').mockResolvedValue({ id: 'user-a', email: 'a@mail.com', name: 'Budi', aiConsent: true, timezone: 'Asia/Jakarta' });
+    const buat = vi.spyOn(prisma.user, 'create').mockResolvedValue({ id: 'user-a', email: 'a@mail.com', name: 'Budi', aiConsent: true, timezone: 'Asia/Jakarta' });
     const r = await request(app).patch('/api/profile').set('Authorization', `Bearer ${buatToken('user-a')}`).send({ nama: 'Budi', aiConsent: true, email: 'a@mail.com' });
     expect(r.status).toBe(200);
-    expect(upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'user-a' } }));
+    expect(buat).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ id: 'user-a' }) }));
     expect(r.body.nama).toBe('Budi');
+  });
+  it('PATCH user lama tanpa email -> 200 update', async () => {
+    vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({ id: 'user-a', email: 'lama@mail.com', name: 'Lama', aiConsent: false, timezone: 'Asia/Jakarta' });
+    const update = vi.spyOn(prisma.user, 'update').mockResolvedValue({ id: 'user-a', email: 'lama@mail.com', name: 'Baru', aiConsent: true, timezone: 'Asia/Jakarta' });
+    const r = await request(app).patch('/api/profile').set('Authorization', `Bearer ${buatToken('user-a')}`).send({ nama: 'Baru', aiConsent: true });
+    expect(r.status).toBe(200);
+    expect(update).toHaveBeenCalledWith({ where: { id: 'user-a' }, data: { name: 'Baru', aiConsent: true } });
+    expect(r.body).toEqual({ id: 'user-a', email: 'lama@mail.com', nama: 'Baru', aiConsent: true, timezone: 'Asia/Jakarta' });
   });
 });
