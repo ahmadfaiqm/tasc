@@ -1,6 +1,12 @@
 import { useState } from 'react';
 
-const CONTOH = ['Tugas kuliah', 'Mendesak', 'AI membaca', 'Rekap'];
+const CONTOH = [
+  { judul: '49%', sub: 'Selesai tepat waktu' },
+  { judul: 'Mendesak', sub: '2 tugas butuh cepat' },
+  { judul: 'AI membaca', sub: 'Bahasa sehari-hari' },
+  { judul: 'Rekap', sub: 'Riwayat per bulan' },
+  { judul: 'Berikutnya', sub: 'Selalu tahu urutan' },
+];
 
 export default function AuthPage({ onMasuk, onDaftar, onGoogle, onTamu, galat = '', sibuk = false, namaAwal = '' }) {
   const [tab, setTab] = useState('masuk');
@@ -39,12 +45,25 @@ export default function AuthPage({ onMasuk, onDaftar, onGoogle, onTamu, galat = 
   return (
     <div className="auth-page">
       <section aria-label="Masuk akun" className="auth-hero">
-        <p className="auth-logo">
-          <span className="centang">✓</span> Taska
-        </p>
+        <nav aria-label="Navigasi" className="auth-nav">
+          <p className="auth-logo">
+            <span className="centang">✓</span> Taska
+          </p>
+          <div className="tautan-tengah">
+            <a href="#auth-card" onClick={() => setTab('masuk')}>
+              Masuk
+            </a>
+            <a href="#auth-card" onClick={() => setTab('daftar')}>
+              Daftar
+            </a>
+          </div>
+          <a className="cta-lime" href="#auth-card">
+            Mulai
+          </a>
+        </nav>
         <h1>Susun harimu bersama AI</h1>
         <p className="sub">Tulis rencana dengan bahasa sehari-hari — TASKA menyusunnya jadi tugas terjadwal.</p>
-        <div className="auth-card">
+        <div className="auth-card" id="auth-card">
           <div role="tablist" aria-label="Masuk atau daftar" className="tab-segmented">
             <button type="button" role="tab" aria-selected={tab === 'masuk'} onClick={() => setTab('masuk')}>
               Masuk
@@ -66,7 +85,10 @@ export default function AuthPage({ onMasuk, onDaftar, onGoogle, onTamu, galat = 
               <input id="auth-sandi" type="password" value={sandi} onChange={(e) => setSandi(e.target.value)} autoComplete="current-password" />
               <div className="baris">
                 <button type="submit" className="tombol-utama" disabled={sibuk}>
-                  Masuk
+                  Masuk{' '}
+                  <span className="panah" aria-hidden="true">
+                    →
+                  </span>
                 </button>
               </div>
               <p className="mikro">RINGKASAN AKUN</p>
@@ -88,7 +110,10 @@ export default function AuthPage({ onMasuk, onDaftar, onGoogle, onTamu, galat = 
               </label>
               <div className="baris">
                 <button type="submit" className="tombol-utama" disabled={sibuk || !setuju}>
-                  Daftar
+                  Daftar{' '}
+                  <span className="panah" aria-hidden="true">
+                    →
+                  </span>
                 </button>
               </div>
             </form>
@@ -101,8 +126,9 @@ export default function AuthPage({ onMasuk, onDaftar, onGoogle, onTamu, galat = 
         </div>
         <div className="kartu-contoh" aria-hidden="true">
           {CONTOH.map((c) => (
-            <span key={c} className="contoh">
-              {c}
+            <span key={c.judul} className="contoh">
+              <strong>{c.judul}</strong>
+              <span>{c.sub}</span>
             </span>
           ))}
         </div>

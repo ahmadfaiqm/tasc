@@ -1,5 +1,6 @@
 // client/src/components/Ringkasan.jsx
 export default function Ringkasan({ nama, bento }) {
+  const inisial = (nama || 'T').trim().charAt(0).toUpperCase() || 'T';
   return (
     <section aria-label="Ringkasan">
       <p className="mikro">RINGKASAN</p>
@@ -21,7 +22,12 @@ export default function Ringkasan({ nama, bento }) {
           </p>
         </div>
         <div className="bento bento-biru">
-          <p className="mikro">BERIKUTNYA</p>
+          <div className="bento-head">
+            <span className="avatar" aria-hidden="true">
+              {inisial}
+            </span>
+            <p className="mikro">BERIKUTNYA</p>
+          </div>
           {bento.berikut ? (
             <p>
               {[bento.berikut.jam, bento.berikut.hari, bento.berikut.nama].filter(Boolean).join(' · ')}
