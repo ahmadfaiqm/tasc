@@ -488,7 +488,7 @@ export default function App() {
     }
   };
 
-  const daftar = async ({ nama, email, sandi }) => {
+  const daftarAkun = async ({ nama, email, sandi }) => {
     if (!supabase) {
       tampilkanToast('Supabase belum dikonfigurasi — mode tamu (localStorage)');
       return;
@@ -549,7 +549,7 @@ export default function App() {
       <main className="wadah">
         <AuthPage
           onMasuk={masuk}
-          onDaftar={daftar}
+          onDaftar={daftarAkun}
           onGoogle={masukGoogle}
           onTamu={pilihTamu}
           galat={galatAuth}
