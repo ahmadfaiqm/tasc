@@ -10,8 +10,13 @@ import {
   bukaUlangTask,
   ambilToken,
   simpanToken,
+  muatProfil,
+  simpanProfil,
 } from './lib/api.js';
 import { supabase } from './lib/supabase.js';
+import { hitungBento } from './lib/ringkasan.js';
+import AuthPage from './components/AuthPage.jsx';
+import Dashboard from './components/Dashboard.jsx';
 import TaskList from './components/TaskList.jsx';
 import Preview from './components/Preview.jsx';
 import History from './components/History.jsx';
@@ -82,6 +87,7 @@ function dariApi(t) {
     priority: t.priority ?? 'MEDIUM',
     priority_source: t.priority_source ?? t.prioritySource ?? 'SYSTEM',
     status: t.status ?? (t.selesai ? 'COMPLETED' : 'PENDING'),
+    completed_at: t.completed_at ?? t.completedAt ?? null,
     reminded: Boolean(t.reminded),
     updated_at: t.updatedAt ?? t.updated_at ?? new Date().toISOString(),
   };
@@ -144,8 +150,16 @@ export default function App() {
   const [toast, setToast] = useState('');
   const [belumSinkron, setBelumSinkron] = useState(false);
   const [pengguna, setPengguna] = useState(null);
-  const [email, setEmail] = useState('');
-  const [sandi, setSandi] = useState('');
+  const [modeTamu, setModeTamu] = useState(() => {
+    try {
+      return sessionStorage.getItem('taskman:tamu') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [profil, setProfil] = useState({ nama: '', aiConsent: false });
+  const [galatAuth, setGalatAuth] = useState('');
+  const [sibukAuth, setSibukAuth] = useState(false);
   const sudahMuat = useRef(false);
   const arsipHapus = useRef(null);
   const timerToast = useRef(null);
@@ -449,134 +463,164 @@ export default function App() {
     tampilkanToast(izin === 'granted' ? 'Notifikasi diaktifkan' : 'Izin notifikasi ditolak — toast tetap jalan');
   };
 
-  const masuk = async (modeAuth) => {
+  const masuk = async ({ email, sandi }) => {
     if (!supabase) {
       tampilkanToast('Supabase belum dikonfigurasi — mode tamu (localStorage)');
       return;
     }
-    const fn = modeAuth === 'daftar' ? supabase.auth.signUp : supabase.auth.signInWithPassword;
-    const { error } = await fn({ email, password: sandi });
-    tampilkanToast(error ? `Gagal: ${error.message}` : modeAuth === 'daftar' ? 'Cek email untuk verifikasi' : 'Masuk berhasil');
+    setSibukAuth(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password: sandi });
+      if (error) {
+        setGalatAuth(`Gagal: ${error.message}`);
+        return;
+      }
+      setGalatAuth('');
+      tampilkanToast('Masuk berhasil');
+      try {
+        const p = await muatProfil();
+        setProfil({ nama: p?.nama ?? '', aiConsent: Boolean(p?.aiConsent) });
+      } catch {
+        setProfil({ nama: '', aiConsent: false });
+      }
+    } finally {
+      setSibukAuth(false);
+    }
   };
+
+  const daftar = async ({ nama, email, sandi }) => {
+    if (!supabase) {
+      tampilkanToast('Supabase belum dikonfigurasi — mode tamu (localStorage)');
+      return;
+    }
+    setSibukAuth(true);
+    try {
+      const { error } = await supabase.auth.signUp({ email, password: sandi });
+      if (error) {
+        setGalatAuth(`Gagal: ${error.message}`);
+        return;
+      }
+      setGalatAuth('');
+      try {
+        await simpanProfil({ nama, aiConsent: true, email });
+      } catch {
+        tampilkanToast('Profil gagal disimpan — coba lagi nanti');
+      }
+      tampilkanToast('Cek email untuk verifikasi');
+    } finally {
+      setSibukAuth(false);
+    }
+  };
+
+  const masukGoogle = async () => {
+    if (!supabase) {
+      tampilkanToast('Supabase belum dikonfigurasi — mode tamu (localStorage)');
+      return;
+    }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) setGalatAuth(`Gagal: ${error.message}`);
+  };
+
+  const pilihTamu = () => {
+    try {
+      sessionStorage.setItem('taskman:tamu', '1');
+    } catch { /* abaikan */ }
+    setModeTamu(true);
+  };
+
   const keluar = async () => {
     if (supabase) await supabase.auth.signOut();
     simpanToken('');
     setPengguna(null);
     sudahMuat.current = false;
+    try {
+      sessionStorage.removeItem('taskman:tamu');
+    } catch { /* abaikan */ }
+    setModeTamu(false);
+    setProfil({ nama: '', aiConsent: false });
+    setGalatAuth('');
   };
+
+  if (supabase && !pengguna && !modeTamu) {
+    return (
+      <main className="wadah">
+        <AuthPage
+          onMasuk={masuk}
+          onDaftar={daftar}
+          onGoogle={masukGoogle}
+          onTamu={pilihTamu}
+          galat={galatAuth}
+          sibuk={sibukAuth}
+          namaAwal={''}
+        />
+      </main>
+    );
+  }
 
   return (
     <main className="wadah">
-      <nav aria-label="Navigasi utama" className="nav-tetap">
-        <a className="logo-tumpuk" href="#atas">
-          TAS
-          <br />
-          KA
-        </a>
-        <div className="nav-tautan">
-          <a href="#folder">Folder</a>
-          <a href="#kerja">Coba</a>
-        </div>
-      </nav>
-      <div className="tepi-sosial" aria-hidden="true">
-        <span>TASKA</span>
-      </div>
-      <span className="tepi-gulir" aria-hidden="true">
-        Gulir
-      </span>
-
-      <section id="atas" aria-label="Hero" className="bagian hero">
-        <p className="nav-nomor">01</p>
-        <h1 className="wordmark">TASKA</h1>
-        <p className="tagline">Tulis rencana dengan bahasa sehari-hari — TASKA menyusunnya jadi tugas, menentukan urgensi, dan menyarankan urutan pengerjaan.</p>
-        <a href="#kerja">
-          <button type="button" className="primer">
-            Coba sekarang
-          </button>
-        </a>
-      </section>
-
-      <section id="folder" aria-label="Folder bulanan" className="bagian">
-        <p className="nav-nomor">02</p>
-        <History daftar={daftar} />
-      </section>
-
-      <section id="kerja" aria-label="Ruang kerja" className="bagian">
-        <p className="nav-nomor">03</p>
-        <h2>Ruang Kerja</h2>
-        <p className="mode-line">{pengguna ? `Mode akun — ${pengguna.email}` : 'Mode tamu — tugas tersimpan di browser'}</p>
-        <section aria-label="Akun" className="kartu akun">
-        {pengguna ? (
-          <div className="baris">
-            <span>Masuk sebagai {pengguna.email}</span>
-            <button type="button" onClick={keluar}>
-              Keluar
-            </button>
-          </div>
-        ) : (
-          <div className="baris">
-            <label htmlFor="email">Email</label>
-            <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nama@email.com" />
-            <label htmlFor="sandi">Sandi</label>
-            <input id="sandi" type="password" value={sandi} onChange={(e) => setSandi(e.target.value)} />
-            <button type="button" onClick={() => masuk('masuk')}>
-              Masuk
-            </button>
-            <button type="button" onClick={() => masuk('daftar')}>
-              Daftar
-            </button>
-            {!supabase && <span className="privasi">mode tamu (localStorage)</span>}
-          </div>
-        )}
-      </section>
-      {belumSinkron && <p className="banner">Belum tersinkron — perubahan disimpan lokal, retry otomatis.</p>}
-      <div className="kolom">
-        <section aria-label="Masukan paragraf" className="kartu">
-          <label htmlFor="paragraf">Paragraf tugas (Bahasa Indonesia)</label>
-          <textarea
-            id="paragraf"
-            rows={5}
-            value={paragraf}
-            onChange={(e) => setParagraf(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) susun();
-            }}
-            placeholder="Contoh: Rapat jam 9, lalu kirim laporan 30 menit lagi. Besok apel pukul 07.30"
-          />
-          <div className="baris">
-            <button type="button" onClick={susun}>
-              Susun jadi tugas
-            </button>
-            <span className="badge" aria-live="polite">
-              mode {mode === 'ai' ? 'AI' : 'lokal'}
-            </span>
-          </div>
-          <p className="privasi">
-            Paragraf hanya dikirim ke AI saat tombol ditekan.{' '}
-            <button type="button" onClick={() => setPaksaLokal((v) => !v)}>
-              {paksaLokal ? ' mode lokal saja (aktif)' : 'pakai mode lokal saja'}
-            </button>
-          </p>
-          <div className="baris">
-            <button type="button" onClick={mintaIzinNotifikasi}>
-              Aktifkan notifikasi
-            </button>
-          </div>
-        </section>
-        <section aria-label="Daftar tugas" className="kartu">
-          <h3>Daftar tugas</h3>
-          <TaskList daftar={daftar} onUbah={ubah} onHapus={hapus} onToggle={toggle} />
-        </section>
-      </div>
-      <Preview daftar={preview} onKonfirmasi={konfirmasi} onUbah={ubahPreview} onBatal={batalPreview} />
-      <SaranUrutan saran={saran} />
-      <AssistantBox />
+      <Dashboard
+        nama={profil.nama}
+        email={pengguna?.email}
+        tamu={!pengguna}
+        bento={hitungBento(daftar)}
+        onKeluar={keluar}
+        tugas={
+          <>
+            {belumSinkron && <p className="banner">Belum tersinkron — perubahan disimpan lokal, retry otomatis.</p>}
+            <div className="kolom">
+              <section aria-label="Masukan paragraf" className="kartu">
+                <label htmlFor="paragraf">Paragraf tugas (Bahasa Indonesia)</label>
+                <textarea
+                  id="paragraf"
+                  rows={5}
+                  value={paragraf}
+                  onChange={(e) => setParagraf(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) susun();
+                  }}
+                  placeholder="Contoh: Rapat jam 9, lalu kirim laporan 30 menit lagi. Besok apel pukul 07.30"
+                />
+                <div className="baris">
+                  <button type="button" onClick={susun}>
+                    Susun jadi tugas
+                  </button>
+                  <span className="badge" aria-live="polite">
+                    mode {mode === 'ai' ? 'AI' : 'lokal'}
+                  </span>
+                </div>
+                <p className="privasi">
+                  Paragraf hanya dikirim ke AI saat tombol ditekan.{' '}
+                  <button type="button" onClick={() => setPaksaLokal((v) => !v)}>
+                    {paksaLokal ? ' mode lokal saja (aktif)' : 'pakai mode lokal saja'}
+                  </button>
+                </p>
+                <div className="baris">
+                  <button type="button" onClick={mintaIzinNotifikasi}>
+                    Aktifkan notifikasi
+                  </button>
+                </div>
+              </section>
+              <section aria-label="Daftar tugas" className="kartu">
+                <h3>Daftar tugas</h3>
+                <TaskList daftar={daftar} onUbah={ubah} onHapus={hapus} onToggle={toggle} />
+              </section>
+            </div>
+            <Preview daftar={preview} onKonfirmasi={konfirmasi} onUbah={ubahPreview} onBatal={batalPreview} />
+            <SaranUrutan saran={saran} />
+            <AssistantBox />
+          </>
+        }
+        rekap={<History daftar={daftar} />}
+      />
       <Toast
         pesan={toast}
         aksiLabel={arsipHapus.current ? 'Urung' : undefined}
         onAksi={arsipHapus.current ? urungkanHapus : undefined}
       />
-      </section>
     </main>
   );
 }

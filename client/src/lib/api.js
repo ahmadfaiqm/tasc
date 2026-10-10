@@ -121,3 +121,13 @@ export async function bukaUlangTask(id) {
 export async function riwayatBulan(year, month) {
   return panggilApi(`/api/history/${year}/${month}`);
 }
+
+// GET /api/profile -> {nama, aiConsent, ...} (404 bila belum ada).
+export async function muatProfil() {
+  return panggilApi('/api/profile');
+}
+
+// PATCH /api/profile.
+export async function simpanProfil(data) {
+  return panggilApi('/api/profile', { method: 'PATCH', body: data });
+}
