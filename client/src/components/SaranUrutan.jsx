@@ -1,17 +1,22 @@
-export default function SaranUrutan({ saran }) {
+export default function SaranUrutan({ saran, onPilih }) {
   if (!saran || !saran.pertama) return null;
+  const baris = [
+    `Kerjakan ${saran.pertama} dulu — ${saran.alasan}`,
+    ...(saran.kedua ? [`Lalu ${saran.kedua}`] : []),
+    ...(saran.sisa?.length ? [`Sisa: ${saran.sisa.join(', ')}`] : []),
+  ];
   return (
-    <section aria-label="Saran urutan" className="saran">
-      <h3>Saran urutan</h3>
-      <p>
-        Kerjakan <strong>{saran.pertama}</strong> dulu ({saran.alasan}
-        ){saran.kedua ? (
-          <>
-            , lalu <strong>{saran.kedua}</strong>
-          </>
-        ) : null}
-        {saran.sisa?.length ? ` — sisa: ${saran.sisa.join(', ')}` : '.'}
-      </p>
+    <section aria-label="Masukan cepat" className="kartu masukan">
+      <h3>Masukan cepat</h3>
+      <ul className="daftar-masukan">
+        {baris.map((b) => (
+          <li key={b}>
+            <button type="button" onClick={() => onPilih?.(b)}>
+              {b} <span aria-hidden="true">▸</span>
+            </button>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

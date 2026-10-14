@@ -230,3 +230,8 @@ button:disabled { opacity: 0.5; cursor: default; }
 .lencana-urgent { background: #ffe3e3; color: #c2255c; font-weight: 700; }
 .lencana-normal { background: #e7f0fd; color: #2c78e6; }
 .lencana-low { background: var(--sf); color: var(--mute); box-shadow: inset 0 0 0 1px var(--line); }
+
+/* Panel masukan cepat. */
+.daftar-masukan { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+.daftar-masukan button { width: 100%; text-align: left; background: var(--sf); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 0.55rem 0.8rem; font-family: inherit; font-size: 13px; letter-spacing: normal; text-transform: none; }
+.daftar-masukan button:hover { border-color: var(--ink); }

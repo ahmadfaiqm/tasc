@@ -10,11 +10,15 @@ const SARAN_CEPAT = [
   'Ringkas jadwalku besok',
 ];
 
-export default function AssistantBox() {
+export default function AssistantBox({ pesanAwal = '' }) {
   const [pesan, setPesan] = useState('');
   const [riwayat, setRiwayat] = useState([]);
   const [sibuk, setSibuk] = useState(false);
   const dasar = useRef(null);
+
+  useEffect(() => {
+    if (pesanAwal) setPesan(pesanAwal);
+  }, [pesanAwal]);
 
   useEffect(() => {
     dasar.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
