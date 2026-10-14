@@ -1,6 +1,6 @@
 // client/src/components/Ringkasan.jsx
 // Panel kiri landing: konteks, angka produktivitas besar, kartu aktivitas kuning.
-export default function Ringkasan({ nama, bento }) {
+export default function Ringkasan({ bento }) {
   const persen = bento?.selesaiPersen ?? 0;
   return (
     <section aria-label="Produktivitas" className="panel-kiri">

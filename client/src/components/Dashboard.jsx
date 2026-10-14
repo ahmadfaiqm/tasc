@@ -1,6 +1,6 @@
 // client/src/components/Dashboard.jsx
 // Cangkang satu landing: topbar + sapaan + slot tugas + slot rekap. Tanpa tab, tanpa mode tamu.
-export default function Dashboard({ nama, email, bento, onKeluar, tugas, rekap }) {
+export default function Dashboard({ nama, email, onKeluar, tugas, rekap }) {
   return (
     <div>
       <header className="topbar">

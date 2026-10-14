@@ -157,7 +157,6 @@ export default function App() {
   const [sibukSusun, setSibukSusun] = useState(false);
   const susunRef = useRef(false);
   const [prefillAsisten, setPrefillAsisten] = useState('');
-  const sudahMuat = useRef(false);
   const arsipHapus = useRef(null);
   const timerToast = useRef(null);
 
@@ -227,7 +226,6 @@ export default function App() {
       } catch {
         setBelumSinkron(true);
       }
-      sudahMuat.current = true;
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pengguna]);
@@ -524,7 +522,6 @@ export default function App() {
     if (supabase) await supabase.auth.signOut();
     simpanToken('');
     setPengguna(null);
-    sudahMuat.current = false;
     setProfil({ nama: '', aiConsent: false });
     setGalatAuth('');
     setDaftar([]);
@@ -551,13 +548,12 @@ export default function App() {
       <Dashboard
         nama={profil.nama}
         email={pengguna?.email}
-        bento={bento}
         onKeluar={keluar}
         tugas={
           <>
             {belumSinkron && <p className="banner">Belum tersinkron — perubahan disimpan lokal, retry otomatis.</p>}
             <div className="panel-tiga">
-              <Ringkasan nama={profil.nama} bento={bento} />
+              <Ringkasan bento={bento} />
               <section aria-label="Task terdekat" className="kartu panel-tengah">
                 <h3>Task terdekat</h3>
                 <TaskList daftar={daftar} onUbah={ubah} onHapus={hapus} onToggle={toggle} onTanya={(t) => pilihSaran(`Tanya soal: ${t.title ?? t.nama ?? ''}`)} />
