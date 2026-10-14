@@ -1,37 +1,30 @@
 // client/src/components/Dashboard.jsx
-import { useState } from 'react';
-import Ringkasan from './Ringkasan.jsx';
-
-export default function Dashboard({ nama, email, tamu, bento, onKeluar, tugas, rekap }) {
-  const [tab, setTab] = useState(tamu ? 'tugas' : 'ringkasan');
-  const tabs = [
-    ['ringkasan', 'Ringkasan'],
-    ['tugas', 'Tugas'],
-    ['rekap', 'Rekap'],
-  ];
+// Cangkang satu landing: topbar + sapaan + slot tugas + slot rekap. Tanpa tab, tanpa mode tamu.
+export default function Dashboard({ nama, email, bento, onKeluar, tugas, rekap }) {
   return (
     <div>
-      <header className="dash-header">
+      <header className="topbar">
         <span className="auth-logo" style={{ position: 'static' }}>
           <span className="centang">✓</span> Taska
         </span>
-        <nav aria-label="Dashboard" className="nav-pil" role="tablist">
-          {tabs.map(([id, label]) => (
-            <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>
-              {label}
-            </button>
-          ))}
+        <nav aria-label="Bagian halaman" className="tautan-landing">
+          <a href="#bagian-tugas">Hari ini</a>
+          <a href="#bagian-tugas">Tugas</a>
+          <a href="#bagian-rekap">Rekap</a>
+          <a href="#asisten">Asisten</a>
         </nav>
-        <span className="dash-nama">{nama || email || 'Tamu'}</span>
-        <button type="button" className="pil-hitam" onClick={onKeluar}>
+        <span className="dash-nama">{nama || email || 'Teman'}</span>
+        <button type="button" className="tombol-garis" onClick={onKeluar}>
           Keluar
         </button>
       </header>
       <main>
-        {tab === 'ringkasan' && !tamu ? <Ringkasan nama={nama} bento={bento} /> : null}
-        {tab === 'ringkasan' && tamu ? <p className="mikro">MASUK UNTUK RINGKASAN</p> : null}
-        {tab === 'tugas' ? tugas : null}
-        {tab === 'rekap' ? rekap : null}
+        <div className="salam">
+          <h2>Halo, {nama || 'teman'}!</h2>
+          <p className="mikro">TASK HARI INI</p>
+        </div>
+        <div id="bagian-tugas">{tugas}</div>
+        <div id="bagian-rekap">{rekap}</div>
       </main>
     </div>
   );

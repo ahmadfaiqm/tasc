@@ -17,6 +17,7 @@ import { supabase } from './lib/supabase.js';
 import { hitungBento } from './lib/ringkasan.js';
 import AuthPage from './components/AuthPage.jsx';
 import Dashboard from './components/Dashboard.jsx';
+import Ringkasan from './components/Ringkasan.jsx';
 import TaskList from './components/TaskList.jsx';
 import Preview from './components/Preview.jsx';
 import History from './components/History.jsx';
@@ -143,23 +144,18 @@ function kePayload(k) {
 
 export default function App() {
   const [paragraf, setParagraf] = useState('');
-  const [daftar, setDaftar] = useState(() => muat(KUNCI_LOKAL, []));
+  const [daftar, setDaftar] = useState([]);
   const [preview, setPreview] = useState([]);
   const [mode, setMode] = useState('lokal');
   const [paksaLokal, setPaksaLokal] = useState(false);
   const [toast, setToast] = useState('');
   const [belumSinkron, setBelumSinkron] = useState(false);
   const [pengguna, setPengguna] = useState(null);
-  const [modeTamu, setModeTamu] = useState(() => {
-    try {
-      return sessionStorage.getItem('taskman:tamu') === '1';
-    } catch {
-      return false;
-    }
-  });
   const [profil, setProfil] = useState({ nama: '', aiConsent: false });
   const [galatAuth, setGalatAuth] = useState('');
   const [sibukAuth, setSibukAuth] = useState(false);
+  const [sibukSusun, setSibukSusun] = useState(false);
+  const [prefillAsisten, setPrefillAsisten] = useState('');
   const sudahMuat = useRef(false);
   const arsipHapus = useRef(null);
   const timerToast = useRef(null);
@@ -195,13 +191,10 @@ export default function App() {
     const j = await muatTasks();
     const tasks = (j?.tasks ?? []).map(dariApi);
     setDaftar(tasks);
-    try {
-      localStorage.setItem(KUNCI_LOKAL, JSON.stringify(tasks));
-    } catch { /* abaikan */ }
     setBelumSinkron(false);
   };
 
-  // Login: migrasi batch tamu via API, lalu jadikan API sumber utama.
+  // Login: migrasi batch lokal lawas via API, lalu jadikan API sumber utama.
   useEffect(() => {
     if (!supabase || !pengguna) return;
     (async () => {
@@ -223,6 +216,9 @@ export default function App() {
             setBelumSinkron(true);
           }
         }
+        try {
+          localStorage.removeItem(KUNCI_LOKAL);
+        } catch { /* abaikan */ }
         await segarkanDariApi();
         try {
           localStorage.removeItem(KUNCI_ANTRI);
@@ -234,15 +230,6 @@ export default function App() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pengguna]);
-
-  // Cache lokal saat tamu.
-  useEffect(() => {
-    if (!pengguna) {
-      try {
-        localStorage.setItem(KUNCI_LOKAL, JSON.stringify(daftar));
-      } catch { /* abaikan */ }
-    }
-  }, [daftar, pengguna]);
 
   // Retry antre tiap 30 dtk.
   useEffect(() => {
@@ -331,63 +318,71 @@ export default function App() {
     setToast('');
   };
 
+  const butuhSesi = async () => {
+    if (!(await ambilToken())) {
+      tampilkanToast('Sesi berakhir — masuk ulang');
+      return false;
+    }
+    return true;
+  };
+
   // Quick Capture -> pratinjau (tanpa preview tidak ada tulis DB dari AI).
   const susun = async () => {
+    if (sibukSusun) return;
     if (!paragraf.trim()) {
       tampilkanToast('Tulis dulu paragraf tugasnya');
       return;
     }
-    const now = new Date();
-    if (!paksaLokal) {
-      try {
-        const hasil = await mintaParse(paragraf);
-        if (Array.isArray(hasil?.tasks) && hasil.tasks.length) {
-          setPreview(hasil.tasks.map(perkayaKandidat));
-          setMode(hasil.sumber === 'ai' ? 'ai' : 'lokal');
-          tampilkanToast(`${hasil.tasks.length} kandidat siap diperiksa (mode ${hasil.sumber === 'ai' ? 'AI' : 'lokal'})`);
-          return;
-        }
-        if (hasil?.sumber === 'lokal') throw new Error('fallback-lokal');
-        if (!hasil?.tasks?.length) {
-          // AI menjawab kosong -> tetap tawarkan baca lokal.
-          const lokal = parseParagraf(paragraf, now).map(perkayaKandidat);
-          setPreview(lokal);
-          setMode('lokal');
-          tampilkanToast(`${lokal.length} kandidat siap diperiksa (mode lokal)`);
-          return;
-        }
-      } catch { /* jatuh ke lokal */ }
+    setSibukSusun(true);
+    try {
+      const now = new Date();
+      if (!paksaLokal) {
+        try {
+          const hasil = await mintaParse(paragraf);
+          if (Array.isArray(hasil?.tasks) && hasil.tasks.length) {
+            setPreview(hasil.tasks.map(perkayaKandidat));
+            setMode(hasil.sumber === 'ai' ? 'ai' : 'lokal');
+            tampilkanToast(`${hasil.tasks.length} kandidat siap diperiksa (mode ${hasil.sumber === 'ai' ? 'AI' : 'lokal'})`);
+            return;
+          }
+          if (hasil?.sumber === 'lokal') throw new Error('fallback-lokal');
+          if (!hasil?.tasks?.length) {
+            // AI menjawab kosong -> tetap tawarkan baca lokal.
+            const lokal = parseParagraf(paragraf, now).map(perkayaKandidat);
+            setPreview(lokal);
+            setMode('lokal');
+            tampilkanToast(`${lokal.length} kandidat siap diperiksa (mode lokal)`);
+            return;
+          }
+        } catch { /* jatuh ke lokal */ }
+      }
+      const lokal = parseParagraf(paragraf, now).map(perkayaKandidat);
+      setPreview(lokal);
+      setMode('lokal');
+      tampilkanToast(`${lokal.length} kandidat siap diperiksa (mode lokal)`);
+    } finally {
+      setSibukSusun(false);
     }
-    const lokal = parseParagraf(paragraf, now).map(perkayaKandidat);
-    setPreview(lokal);
-    setMode('lokal');
-    tampilkanToast(`${lokal.length} kandidat siap diperiksa (mode lokal)`);
   };
-
-  const adaToken = async () => Boolean(await ambilToken());
 
   const konfirmasi = async (i) => {
     const k = preview[i];
     if (!k) return;
+    if (!(await butuhSesi())) return;
     const payload = kePayload(k);
-    if ((await adaToken()) && pengguna) {
+    try {
+      const tersimpan = await buatTask(payload);
+      setDaftar((d) => [...d, dariApi(tersimpan)]);
+      tampilkanToast('Tugas tersimpan');
+    } catch {
+      const antri = muat(KUNCI_ANTRI, []);
+      antri.push(payload);
       try {
-        const tersimpan = await buatTask(payload);
-        setDaftar((d) => [...d, dariApi(tersimpan)]);
-        tampilkanToast('Tugas tersimpan');
-      } catch {
-        const antri = muat(KUNCI_ANTRI, []);
-        antri.push(payload);
-        try {
-          localStorage.setItem(KUNCI_ANTRI, JSON.stringify(antri));
-        } catch { /* abaikan */ }
-        setBelumSinkron(true);
-        tampilkanToast('Gagal menyimpan — masuk antrean, retry otomatis');
-        return;
-      }
-    } else {
-      setDaftar((d) => [...d, { ...k, status: 'PENDING', reminded: false, updated_at: new Date().toISOString() }]);
-      tampilkanToast('Tugas tersimpan (tamu)');
+        localStorage.setItem(KUNCI_ANTRI, JSON.stringify(antri));
+      } catch { /* abaikan */ }
+      setBelumSinkron(true);
+      tampilkanToast('Gagal menyimpan — masuk antrean, retry otomatis');
+      return;
     }
     setPreview((p) => p.filter((_, x) => x !== i));
   };
@@ -401,49 +396,40 @@ export default function App() {
   };
 
   const saran = useMemo(() => saranUrutan(daftar), [daftar]);
+  const bento = useMemo(() => hitungBento(daftar), [daftar]);
+
+  const pilihSaran = (teks) => {
+    setPrefillAsisten(teks);
+    try {
+      document.getElementById('asisten')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch { /* abaikan */ }
+  };
 
   const ubah = async (id, baru) => {
     const title = (baru.title ?? baru.nama ?? '').trim();
     if (!title) return;
+    if (!(await butuhSesi())) return;
     const patch = {
       title,
       due_date: keTanggalStr(baru.due_date ?? baru.tenggat) ?? null,
       due_time: keJamStr(baru.due_time) ?? null,
       urgency: baru.urgency ?? baru.urgensi ?? undefined,
     };
-    if ((await adaToken()) && pengguna) {
-      try {
-        const r = await ubahTask(id, patch);
-        setDaftar((d) => d.map((t) => (t.id === id ? dariApi(r) : t)));
-        return;
-      } catch {
-        tampilkanToast('Gagal mengubah di server');
-        return;
-      }
+    try {
+      const r = await ubahTask(id, patch);
+      setDaftar((d) => d.map((t) => (t.id === id ? dariApi(r) : t)));
+    } catch {
+      tampilkanToast('Gagal mengubah di server');
     }
-    setDaftar((d) =>
-      d.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              ...patch,
-              time_precision: baru.time_precision ?? t.time_precision ?? 'UNSPECIFIED',
-              reminded: false,
-              updated_at: new Date().toISOString(),
-            }
-          : t
-      )
-    );
   };
 
   const hapus = async (id) => {
-    if ((await adaToken()) && pengguna) {
-      try {
-        await hapusTask(id);
-      } catch {
-        tampilkanToast('Gagal menghapus di server');
-        return;
-      }
+    if (!(await butuhSesi())) return;
+    try {
+      await hapusTask(id);
+    } catch {
+      tampilkanToast('Gagal menghapus di server');
+      return;
     }
     setDaftar((d) => d.filter((t) => t.id !== id));
   };
@@ -451,20 +437,14 @@ export default function App() {
   const toggle = async (id) => {
     const t = daftar.find((x) => x.id === id);
     if (!t) return;
+    if (!(await butuhSesi())) return;
     const status = t.status ?? (t.selesai ? 'COMPLETED' : 'PENDING');
-    if ((await adaToken()) && pengguna) {
-      try {
-        const r = status === 'COMPLETED' ? await bukaUlangTask(id) : await selesaikanTask(id);
-        setDaftar((d) => d.map((x) => (x.id === id ? dariApi(r) : x)));
-        return;
-      } catch {
-        tampilkanToast('Gagal mengubah status di server');
-        return;
-      }
+    try {
+      const r = status === 'COMPLETED' ? await bukaUlangTask(id) : await selesaikanTask(id);
+      setDaftar((d) => d.map((x) => (x.id === id ? dariApi(r) : x)));
+    } catch {
+      tampilkanToast('Gagal mengubah status di server');
     }
-    setDaftar((d) =>
-      d.map((x) => (x.id === id ? { ...x, status: status === 'COMPLETED' ? 'PENDING' : 'COMPLETED' } : x))
-    );
   };
 
   const mintaIzinNotifikasi = async () => {
@@ -478,7 +458,7 @@ export default function App() {
 
   const masuk = async ({ email, sandi }) => {
     if (!supabase) {
-      tampilkanToast('Supabase belum dikonfigurasi — mode tamu (localStorage)');
+      setGalatAuth('Supabase belum dikonfigurasi — hubungi admin');
       return;
     }
     setSibukAuth(true);
@@ -503,7 +483,7 @@ export default function App() {
 
   const daftarAkun = async ({ nama, email, sandi }) => {
     if (!supabase) {
-      tampilkanToast('Supabase belum dikonfigurasi — mode tamu (localStorage)');
+      setGalatAuth('Supabase belum dikonfigurasi — hubungi admin');
       return;
     }
     setSibukAuth(true);
@@ -527,7 +507,7 @@ export default function App() {
 
   const masukGoogle = async () => {
     if (!supabase) {
-      tampilkanToast('Supabase belum dikonfigurasi — mode tamu (localStorage)');
+      setGalatAuth('Supabase belum dikonfigurasi — hubungi admin');
       return;
     }
     const { error } = await supabase.auth.signInWithOAuth({
@@ -537,34 +517,24 @@ export default function App() {
     if (error) setGalatAuth(`Gagal: ${error.message}`);
   };
 
-  const pilihTamu = () => {
-    try {
-      sessionStorage.setItem('taskman:tamu', '1');
-    } catch { /* abaikan */ }
-    setModeTamu(true);
-  };
-
   const keluar = async () => {
     if (supabase) await supabase.auth.signOut();
     simpanToken('');
     setPengguna(null);
     sudahMuat.current = false;
-    try {
-      sessionStorage.removeItem('taskman:tamu');
-    } catch { /* abaikan */ }
-    setModeTamu(false);
     setProfil({ nama: '', aiConsent: false });
     setGalatAuth('');
+    setDaftar([]);
+    setPreview([]);
   };
 
-  if (supabase && !pengguna && !modeTamu) {
+  if (!pengguna) {
     return (
-      <main className="wadah">
+      <main className="wadah landing-terang">
         <AuthPage
           onMasuk={masuk}
           onDaftar={daftarAkun}
           onGoogle={masukGoogle}
-          onTamu={pilihTamu}
           galat={galatAuth}
           sibuk={sibukAuth}
           namaAwal={''}
@@ -574,61 +544,59 @@ export default function App() {
   }
 
   return (
-    <main className="wadah">
+    <main className="wadah landing-terang">
       <Dashboard
         nama={profil.nama}
         email={pengguna?.email}
-        tamu={!pengguna}
-        bento={hitungBento(daftar)}
+        bento={bento}
         onKeluar={keluar}
         tugas={
           <>
             {belumSinkron && <p className="banner">Belum tersinkron — perubahan disimpan lokal, retry otomatis.</p>}
-            <div className="kolom-dash">
-              <div>
-                <div className="kolom">
-                  <section aria-label="Masukan paragraf" className="kartu">
-                <label htmlFor="paragraf">Paragraf tugas (Bahasa Indonesia)</label>
-                <textarea
-                  id="paragraf"
-                  rows={5}
-                  value={paragraf}
-                  onChange={(e) => setParagraf(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) susun();
-                  }}
-                  placeholder="Contoh: Rapat jam 9, lalu kirim laporan 30 menit lagi. Besok apel pukul 07.30"
-                />
-                <div className="baris">
-                  <button type="button" onClick={susun}>
-                    Susun jadi tugas
-                  </button>
-                  <span className="badge" aria-live="polite">
-                    mode {mode === 'ai' ? 'AI' : 'lokal'}
-                  </span>
-                </div>
-                <p className="privasi">
-                  Paragraf hanya dikirim ke AI saat tombol ditekan.{' '}
-                  <button type="button" onClick={() => setPaksaLokal((v) => !v)}>
-                    {paksaLokal ? ' mode lokal saja (aktif)' : 'pakai mode lokal saja'}
-                  </button>
-                </p>
-                <div className="baris">
-                  <button type="button" onClick={mintaIzinNotifikasi}>
-                    Aktifkan notifikasi
-                  </button>
-                </div>
+            <div className="panel-tiga">
+              <Ringkasan nama={profil.nama} bento={bento} />
+              <section aria-label="Task terdekat" className="kartu panel-tengah">
+                <h3>Task terdekat</h3>
+                <TaskList daftar={daftar} onUbah={ubah} onHapus={hapus} onToggle={toggle} onTanya={(t) => pilihSaran(`Tanya soal: ${t.title ?? t.nama ?? ''}`)} />
               </section>
-              <section aria-label="Daftar tugas" className="kartu">
-                <h3>Daftar tugas</h3>
-                <TaskList daftar={daftar} onUbah={ubah} onHapus={hapus} onToggle={toggle} />
-              </section>
-                </div>
-                <Preview daftar={preview} onKonfirmasi={konfirmasi} onUbah={ubahPreview} onBatal={batalPreview} />
-                <SaranUrutan saran={saran} />
+              <div id="asisten">
+                <SaranUrutan saran={saran} onPilih={pilihSaran} />
+                <AssistantBox pesanAwal={prefillAsisten} />
               </div>
-              <div className="asisten-sticky"><AssistantBox /></div>
             </div>
+            <section aria-label="Tulis tugas baru" className="kartu">
+              <label htmlFor="paragraf">Tulis tugas baru (Bahasa Indonesia)</label>
+              <textarea
+                id="paragraf"
+                rows={3}
+                value={paragraf}
+                onChange={(e) => setParagraf(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) susun();
+                }}
+                placeholder="Contoh: Rapat jam 9, lalu kirim laporan 30 menit lagi. Besok apel pukul 07.30"
+              />
+              <div className="baris">
+                <button type="button" onClick={susun} disabled={sibukSusun}>
+                  {sibukSusun ? 'Menyusun…' : 'Susun jadi tugas'}
+                </button>
+                <span className="badge" aria-live="polite">
+                  mode {mode === 'ai' ? 'AI' : 'lokal'}
+                </span>
+              </div>
+              <p className="privasi">
+                Paragraf hanya dikirim ke AI saat tombol ditekan.{' '}
+                <button type="button" onClick={() => setPaksaLokal((v) => !v)}>
+                  {paksaLokal ? ' mode lokal saja (aktif)' : 'pakai mode lokal saja'}
+                </button>
+              </p>
+              <div className="baris">
+                <button type="button" onClick={mintaIzinNotifikasi}>
+                  Aktifkan notifikasi
+                </button>
+              </div>
+            </section>
+            <Preview daftar={preview} onKonfirmasi={konfirmasi} onUbah={ubahPreview} onBatal={batalPreview} />
           </>
         }
         rekap={<History daftar={daftar} />}
