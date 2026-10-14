@@ -82,13 +82,15 @@ function tampilWaktu(tugas) {
   return jam ? `${rel}${tglTampil} · ${jam}` : `${rel}${tglTampil} · Jam belum ditentukan`;
 }
 
+const LENCANA = { URGENT: 'lencana-urgent', NORMAL: 'lencana-normal', LOW: 'lencana-low' };
+
 const PILIHAN_URGENSI = [
   { nilai: 'URGENT', teks: 'Mendesak' },
   { nilai: 'NORMAL', teks: 'Sedang' },
   { nilai: 'LOW', teks: 'Santai' },
 ];
 
-export default function TaskItem({ tugas, onUbah, onHapus, onToggle }) {
+export default function TaskItem({ tugas, onUbah, onHapus, onToggle, onTanya, varian = 'baris' }) {
   const nama = judul(tugas);
   const isSelesai = selesai(tugas);
   const urg = urgensi(tugas);
@@ -132,7 +134,7 @@ export default function TaskItem({ tugas, onUbah, onHapus, onToggle }) {
   };
 
   return (
-    <li className={`tugas ${isSelesai ? 'selesai' : ''} ${mepet ? 'segera' : ''}`}>
+    <li className={`tugas ${varian === 'utama' ? 'task-utama' : 'task-baris'} ${isSelesai ? 'selesai' : ''} ${mepet ? 'segera' : ''}`}>
       <input
         type="checkbox"
         aria-label={`Tandai selesai: ${nama}`}
@@ -186,19 +188,34 @@ export default function TaskItem({ tugas, onUbah, onHapus, onToggle }) {
       ) : (
         <>
           <div className="tugas-teks">
-            <span className="tugas-nama">{nama}</span>{' '}
-            <time className="tugas-waktu">
-              {tampilWaktu(tugas)}
-              {mepet ? ' — kurang dari 5 menit' : ''}
-            </time>
+            <span className="tugas-nama">{nama}</span>
+            <div className="tugas-meta">
+              <span>
+                Waktu
+                <time className="tugas-waktu">
+                  {tampilWaktu(tugas)}
+                  {mepet ? ' — kurang dari 5 menit' : ''}
+                </time>
+              </span>
+              <span>
+                Urgensi
+                <span className={`lencana ${LENCANA[urg] ?? LENCANA.LOW}`}>{label.teks}</span>
+              </span>
+            </div>
           </div>
-          <span className={`label ${label.kelas}`}>{label.teks}</span>
-          <button type="button" className="tombol-ikon" aria-label={`Ubah ${nama}`} title={`Ubah ${nama}`} onClick={mulaiEdit}>
-            &#9998;
-          </button>
-          <button type="button" className="tombol-ikon" aria-label={`Hapus ${nama}`} title={`Hapus ${nama}`} onClick={onHapus}>
-            &#10005;
-          </button>
+          <div className="tugas-aksi">
+            {onTanya ? (
+              <button type="button" className="tombol-ikon" aria-label={`Tanya AI soal ${nama}`} title={`Tanya AI soal ${nama}`} onClick={() => onTanya(tugas)}>
+                &#10022;
+              </button>
+            ) : null}
+            <button type="button" className="tombol-ikon" aria-label={`Ubah ${nama}`} title={`Ubah ${nama}`} onClick={mulaiEdit}>
+              &#9998;
+            </button>
+            <button type="button" className="tombol-ikon" aria-label={`Hapus ${nama}`} title={`Hapus ${nama}`} onClick={onHapus}>
+              &#10005;
+            </button>
+          </div>
         </>
       )}
     </li>
