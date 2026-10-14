@@ -5,19 +5,21 @@ import AuthPage from './AuthPage.jsx';
 afterEach(cleanup);
 
 function pasang(override = {}) {
-  const props = { onMasuk: vi.fn(), onDaftar: vi.fn(), onGoogle: vi.fn(), onTamu: vi.fn(), galat: '', sibuk: false, namaAwal: '', ...override };
+  const props = { onMasuk: vi.fn(), onDaftar: vi.fn(), onGoogle: vi.fn(), galat: '', sibuk: false, namaAwal: '', ...override };
   render(<AuthPage {...props} />);
   return props;
 }
 
 describe('AuthPage', () => {
-  it('menampilkan hero, tab, tombol Google dan tamu', () => {
+  it('menampilkan hero, tab, dan tombol Google tanpa tamu', () => {
     pasang();
     expect(screen.getByText(/susun harimu bersama ai/i)).toBeTruthy();
     expect(screen.getByRole('tab', { name: /masuk/i })).toBeTruthy();
     expect(screen.getByRole('tab', { name: /daftar/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /masuk dengan google/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /lanjut tanpa akun/i })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /lanjut tanpa akun/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: /mulai/i })).toBeNull();
+    expect(screen.queryByText(/selesai tepat waktu/i)).toBeNull();
   });
 
   it('tab Daftar: nama 1 karakter ditolak, consent wajib', () => {
@@ -47,12 +49,17 @@ describe('AuthPage', () => {
     expect(props.onDaftar).toHaveBeenCalledWith({ nama: 'Budi', email: 'a@mail.com', sandi: 'rahasia123' });
   });
 
-  it('tab Masuk: Google, tamu, dan galat server', () => {
+  it('Enter di email mensubmit login', () => {
+    const props = pasang();
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'a@mail.com' } });
+    fireEvent.submit(screen.getByLabelText(/email/i).closest('form'));
+    expect(props.onMasuk).toHaveBeenCalledWith({ email: 'a@mail.com', sandi: '' });
+  });
+
+  it('tab Masuk: Google dan galat server', () => {
     const props = pasang({ galat: 'Gagal: Invalid login' });
     fireEvent.click(screen.getByRole('button', { name: /masuk dengan google/i }));
-    fireEvent.click(screen.getByRole('button', { name: /lanjut tanpa akun/i }));
     expect(props.onGoogle).toHaveBeenCalledTimes(1);
-    expect(props.onTamu).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('alert').textContent).toMatch(/invalid login/i);
   });
 });

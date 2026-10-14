@@ -1,14 +1,6 @@
 import { useState } from 'react';
 
-const CONTOH = [
-  { judul: '49%', sub: 'Selesai tepat waktu' },
-  { judul: 'Mendesak', sub: '2 tugas butuh cepat' },
-  { judul: 'AI membaca', sub: 'Bahasa sehari-hari' },
-  { judul: 'Rekap', sub: 'Riwayat per bulan' },
-  { judul: 'Berikutnya', sub: 'Selalu tahu urutan' },
-];
-
-export default function AuthPage({ onMasuk, onDaftar, onGoogle, onTamu, galat = '', sibuk = false, namaAwal = '' }) {
+export default function AuthPage({ onMasuk, onDaftar, onGoogle, galat = '', sibuk = false, namaAwal = '' }) {
   const [tab, setTab] = useState('masuk');
   const [nama, setNama] = useState(namaAwal);
   const [email, setEmail] = useState('');
@@ -57,9 +49,6 @@ export default function AuthPage({ onMasuk, onDaftar, onGoogle, onTamu, galat = 
               Daftar
             </a>
           </div>
-          <a className="cta-lime" href="#auth-card">
-            Mulai
-          </a>
         </nav>
         <h1>Susun harimu bersama AI</h1>
         <p className="sub">Tulis rencana dengan bahasa sehari-hari — TASKA menyusunnya jadi tugas terjadwal.</p>
@@ -118,19 +107,6 @@ export default function AuthPage({ onMasuk, onDaftar, onGoogle, onTamu, galat = 
               </div>
             </form>
           )}
-          <div className="baris">
-            <button type="button" onClick={onTamu}>
-              Lanjut tanpa akun (mode lokal)
-            </button>
-          </div>
-        </div>
-        <div className="kartu-contoh" aria-hidden="true">
-          {CONTOH.map((c) => (
-            <span key={c.judul} className="contoh">
-              <strong>{c.judul}</strong>
-              <span>{c.sub}</span>
-            </span>
-          ))}
         </div>
       </section>
     </div>
