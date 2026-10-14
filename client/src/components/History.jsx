@@ -1,6 +1,6 @@
 // Rekap bulanan kipas (desain §6.2): 5 kartu miring, tengah penuh di depan.
 // Ketuk kartu samping untuk ke tengah; ketuk kartu aktif untuk buka detail harian.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const NAMA_BULAN = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -10,17 +10,22 @@ const NAMA_BULAN = [
 const WARNA_KIPAS = ['#f9a8d4', '#f6c453', '#7dd3fc', '#86efac', '#c4b5fd'];
 
 // Geometri kipas murni (dapat diuji): posisi kartu relatif terhadap yang aktif.
-export function hitungKipas(indexAktif, indexKartu) {
+export function hitungKipas(indexAktif, indexKartu, jarak = 92) {
   const off = indexKartu - indexAktif;
   const ax = Math.abs(off);
   return {
-    x: off * 92,
+    x: off * jarak,
     r: off * 9,
     s: off === 0 ? 1 : Math.max(0.82, 1 - ax * 0.08),
     y: ax * 12,
     z: 10 - ax,
     op: ax > 2 ? 0 : 1,
   };
+}
+
+// Jarak kipas mengikuti lebar layar (dapat diuji).
+export function pilihJarak(lebarPx) {
+  return lebarPx < 420 ? 58 : 92;
 }
 
 function kunciBulan(d) {
@@ -78,9 +83,9 @@ function statusTugas(t, now) {
 
 const TEKS_STATUS = { selesai: 'Selesai', belum: 'Belum selesai', jadwal: 'Terjadwal', batal: 'Batal' };
 
-function KartuKipas({ kunci, angka, posisi, aktif, warna, onPilih, onBuka }) {
+function KartuKipas({ kunci, angka, posisi, aktif, warna, jarak, onPilih, onBuka }) {
   const kini = bulanIni();
-  const g = hitungKipas(2, posisi);
+  const g = hitungKipas(2, posisi, jarak);
   const persen = angka.total ? Math.round((angka.selesai / angka.total) * 100) : 0;
   return (
     <button
@@ -115,6 +120,14 @@ function KartuKipas({ kunci, angka, posisi, aktif, warna, onPilih, onBuka }) {
 export default function History({ daftar = [], awal }) {
   const [terpilih, setTerpilih] = useState(() => awal ?? bulanIni());
   const [detailTerbuka, setDetailTerbuka] = useState(null);
+  const [lebar, setLebar] = useState(() => (typeof window === 'undefined' ? 1100 : window.innerWidth));
+  const jarak = pilihJarak(lebar);
+
+  useEffect(() => {
+    const atur = () => setLebar(window.innerWidth);
+    window.addEventListener('resize', atur);
+    return () => window.removeEventListener('resize', atur);
+  }, []);
 
   const perBulan = useMemo(() => {
     const now = Date.now();
@@ -173,7 +186,7 @@ export default function History({ daftar = [], awal }) {
       <p className="mikro">REKAP BULANAN</p>
       <div
         aria-label="kipas bulanan"
-        className="kipas"
+        className={`kipas${lebar < 420 ? ' sempit' : ''}`}
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === 'ArrowLeft') pilih(geserBulan(terpilih, -1));
@@ -188,6 +201,7 @@ export default function History({ daftar = [], awal }) {
             posisi={i}
             aktif={k === terpilih}
             warna={WARNA_KIPAS[i % WARNA_KIPAS.length]}
+            jarak={jarak}
             onPilih={() => pilih(k)}
             onBuka={() => setDetailTerbuka(k)}
           />

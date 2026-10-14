@@ -247,6 +247,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 .kipas .folder-sub { font-size: 11px; opacity: 0.75; }
 .komidi-nav { display: flex; gap: 0.8rem; align-items: center; justify-content: center; margin-top: 0.4rem; }
 .komidi-nav .bulan-aktif { font-weight: 700; }
+.kipas.sempit { height: 204px; }
+.kipas.sempit .kcard { width: 122px; height: 176px; margin-left: -61px; }
+.kipas.sempit .folder-angka-big { font-size: 34px; }
 @media (prefers-reduced-motion: reduce) {
   .kipas .kcard { transition: none; }
 }

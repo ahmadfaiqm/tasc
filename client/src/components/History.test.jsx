@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
-import History, { hitungKipas } from './History.jsx';
+import History, { hitungKipas, pilihJarak } from './History.jsx';
 
 afterEach(cleanup);
 
@@ -27,6 +27,11 @@ describe('hitungKipas', () => {
     expect(hitungKipas(2, 2)).toMatchObject({ s: 1 });
     expect(hitungKipas(2, 0).r).toBeLessThan(0);
     expect(hitungKipas(2, 4).r).toBeGreaterThan(0);
+  });
+
+  it('pilihJarak ringkas di layar kecil', () => {
+    expect(pilihJarak(390)).toBe(58);
+    expect(pilihJarak(1100)).toBe(92);
   });
 });
 
