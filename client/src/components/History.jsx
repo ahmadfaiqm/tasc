@@ -1,5 +1,5 @@
-// Folder Bulanan (design.md §3.2): carousel 3 kartu + daftar riwayat bulan terpilih.
-// Angka dihitung dari tugas pengguna (prop daftar) — jalan untuk tamu maupun akun.
+// Rekap bulanan kipas (desain §6.2): 5 kartu miring, tengah penuh di depan.
+// Ketuk kartu samping untuk ke tengah; ketuk kartu aktif untuk buka detail harian.
 import { useMemo, useState } from 'react';
 
 const NAMA_BULAN = [
@@ -7,13 +7,28 @@ const NAMA_BULAN = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
 ];
 
+const WARNA_KIPAS = ['#f9a8d4', '#f6c453', '#7dd3fc', '#86efac', '#c4b5fd'];
+
+// Geometri kipas murni (dapat diuji): posisi kartu relatif terhadap yang aktif.
+export function hitungKipas(indexAktif, indexKartu) {
+  const off = indexKartu - indexAktif;
+  const ax = Math.abs(off);
+  return {
+    x: off * 92,
+    r: off * 9,
+    s: off === 0 ? 1 : Math.max(0.82, 1 - ax * 0.08),
+    y: ax * 12,
+    z: 10 - ax,
+    op: ax > 2 ? 0 : 1,
+  };
+}
+
 function kunciBulan(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
 function bulanIni() {
-  const d = new Date();
-  return kunciBulan(d);
+  return kunciBulan(new Date());
 }
 
 function geserBulan(kunci, delta) {
@@ -63,48 +78,43 @@ function statusTugas(t, now) {
 
 const TEKS_STATUS = { selesai: 'Selesai', belum: 'Belum selesai', jadwal: 'Terjadwal', batal: 'Batal' };
 
-function KartuFolder({ kunci, angka, posisi, onPilih }) {
+function KartuKipas({ kunci, angka, posisi, aktif, warna, onPilih, onBuka }) {
   const kini = bulanIni();
-  const status = kunci === kini ? 'Bulan ini' : angka.total === 0 ? 'Kosong' : 'Arsip';
-  const persen = (n) => (angka.total ? Math.round((n / angka.total) * 100) : 0);
-  const bilah = [
-    { nilai: angka.selesai, warna: '#1f9d73' },
-    { nilai: angka.jadwal, warna: '#b5b7bb' },
-    { nilai: angka.belum, warna: '#b24a9c' },
-    { nilai: angka.batal, warna: '#c3c926' },
-  ];
+  const g = hitungKipas(2, posisi);
+  const persen = angka.total ? Math.round((angka.selesai / angka.total) * 100) : 0;
   return (
-    <button type="button" className={`kartu-folder ${posisi}`} onClick={onPilih} aria-label={`Pilih ${namaBulan(kunci)}`}>
-      <span className="folder-ikon" aria-hidden="true">
-        &#128193;
-      </span>
+    <button
+      type="button"
+      className={`kcard ${aktif ? 'kcard-aktif' : ''}`}
+      style={{
+        background: warna,
+        transform: `translateX(${g.x}px) translateY(${g.y}px) rotate(${g.r}deg) scale(${g.s})`,
+        zIndex: g.z,
+        opacity: aktif ? 1 : 0.92,
+      }}
+      aria-current={aktif ? 'true' : undefined}
+      aria-label={`Pilih ${namaBulan(kunci)}${kunci === kini ? ' (bulan ini)' : ''}`}
+      onClick={() => (aktif ? onBuka() : onPilih())}
+      onKeyDown={(e) => {
+        if (aktif && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          onBuka();
+        }
+      }}
+    >
+      <span className="rate" aria-hidden="true">★ {angka.total ? `${persen}%` : '–'}</span>
       <span className="folder-bulan">{namaBulan(kunci)}</span>
-      <span className="folder-status">{status}</span>
-      <span className="folder-angka">
-        <span>
-          <strong>{angka.total}</strong>Total
-        </span>
-        <span>
-          <strong>{angka.selesai}</strong>Selesai
-        </span>
-        <span>
-          <strong>{angka.belum}</strong>Terlewat
-        </span>
-      </span>
-      <span className="batang" aria-hidden="true">
-        {bilah.map((b, i) => (
-          <span key={i} className="lajur">
-            <span className="isi" style={{ width: `${persen(b.nilai)}%`, backgroundColor: b.warna }} />
-          </span>
-        ))}
+      <span className="folder-angka-big">{angka.total}</span>
+      <span className="folder-sub">
+        {angka.selesai} selesai{angka.belum ? ` · ${angka.belum} terlewat` : ''}
       </span>
     </button>
   );
 }
 
-export default function History({ daftar = [] }) {
-  const [terpilih, setTerpilih] = useState(() => bulanIni());
-  const kini = bulanIni();
+export default function History({ daftar = [], awal }) {
+  const [terpilih, setTerpilih] = useState(() => awal ?? bulanIni());
+  const [detailTerbuka, setDetailTerbuka] = useState(null);
 
   const perBulan = useMemo(() => {
     const now = Date.now();
@@ -125,13 +135,18 @@ export default function History({ daftar = [] }) {
   }, [daftar]);
 
   const angka = (k) => perBulan.get(k) ?? { total: 0, selesai: 0, belum: 0, jadwal: 0, batal: 0, tugas: [] };
-  const kiri = geserBulan(terpilih, -1);
-  const kanan = geserBulan(terpilih, 1);
+  const jendela = [-2, -1, 0, 1, 2].map((d) => geserBulan(terpilih, d));
+
+  const pilih = (k) => {
+    setTerpilih(k);
+    setDetailTerbuka(null);
+  };
 
   const rekap = useMemo(() => {
+    if (!detailTerbuka) return [];
     const now = Date.now();
     const grup = new Map();
-    for (const t of angka(terpilih).tugas) {
+    for (const t of angka(detailTerbuka).tugas) {
       const tgl = (typeof t.due_date === 'string' ? t.due_date : null)
         ?? (t.tenggat ? new Date(t.tenggat).toISOString().slice(0, 10) : null)
         ?? 'tanpa-tanggal';
@@ -139,7 +154,8 @@ export default function History({ daftar = [] }) {
       grup.get(tgl).push({ t, st: statusTugas(t, now) });
     }
     return [...grup.entries()].sort(([a], [b]) => (a < b ? -1 : 1));
-  }, [perBulan, terpilih]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [perBulan, detailTerbuka]);
 
   const judulHari = (tgl) => {
     if (tgl === 'tanpa-tanggal') return 'Tanpa tanggal';
@@ -153,53 +169,70 @@ export default function History({ daftar = [] }) {
   };
 
   return (
-    <section aria-label="Riwayat bulanan" className="kartu riwayat">
-      <h2>Folder Bulanan</h2>
-      <div className="komidi">
-        <KartuFolder kunci={kiri} angka={angka(kiri)} posisi="samping" onPilih={() => setTerpilih(kiri)} />
-        <KartuFolder kunci={terpilih} angka={angka(terpilih)} posisi="aktif" onPilih={() => {}} />
-        <KartuFolder kunci={kanan} angka={angka(kanan)} posisi="samping" onPilih={() => setTerpilih(kanan)} />
+    <section aria-label="Rekap bulanan" className="kartu rekap">
+      <p className="mikro">REKAP BULANAN</p>
+      <div
+        aria-label="kipas bulanan"
+        className="kipas"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowLeft') pilih(geserBulan(terpilih, -1));
+          if (e.key === 'ArrowRight') pilih(geserBulan(terpilih, 1));
+        }}
+      >
+        {jendela.map((k, i) => (
+          <KartuKipas
+            key={k}
+            kunci={k}
+            angka={angka(k)}
+            posisi={i}
+            aktif={k === terpilih}
+            warna={WARNA_KIPAS[i % WARNA_KIPAS.length]}
+            onPilih={() => pilih(k)}
+            onBuka={() => setDetailTerbuka(k)}
+          />
+        ))}
       </div>
       <div className="komidi-nav">
-        <button type="button" className="tombol-ikon" aria-label="Bulan sebelumnya" title="Bulan sebelumnya" onClick={() => setTerpilih(geserBulan(terpilih, -1))}>
+        <button type="button" aria-label="Bulan sebelumnya" title="Bulan sebelumnya" onClick={() => pilih(geserBulan(terpilih, -1))}>
           &#8249;
         </button>
-        <span className="bulan-aktif" aria-live="polite">
+        <span className="bulan-aktif" aria-label="bulan aktif" aria-live="polite">
           {namaBulan(terpilih)}
         </span>
-        <button type="button" className="tombol-ikon" aria-label="Bulan berikutnya" title="Bulan berikutnya" onClick={() => setTerpilih(geserBulan(terpilih, 1))}>
+        <button type="button" aria-label="Bulan berikutnya" title="Bulan berikutnya" onClick={() => pilih(geserBulan(terpilih, 1))}>
           &#8250;
         </button>
       </div>
-      <div className="riwayat-hari">
-        {rekap.length === 0 && <p className="kosong">Belum ada tugas di bulan ini.</p>}
-        {rekap.map(([tgl, isi]) => {
-          const jadi = isi.filter((x) => x.st === 'selesai').length;
-          return (
-            <div key={tgl}>
-              <div className="grup-hari">
-                <span>{judulHari(tgl)}</span>
-                <span className="jumlah">
-                  {isi.length} tugas · {jadi} selesai
-                </span>
+      {detailTerbuka && (
+        <div className="riwayat-hari">
+          {rekap.length === 0 && <p className="kosong">Belum ada tugas di bulan ini.</p>}
+          {rekap.map(([tgl, isi]) => {
+            const jadi = isi.filter((x) => x.st === 'selesai').length;
+            return (
+              <div key={tgl}>
+                <div className="grup-hari">
+                  <span>{judulHari(tgl)}</span>
+                  <span className="jumlah">
+                    {isi.length} tugas · {jadi} selesai
+                  </span>
+                </div>
+                <ul className="riwayat-bariss">
+                  {isi.map(({ t, st }) => (
+                    <li key={t.id}>
+                      <span className={`penanda ${st}`}>{TEKS_STATUS[st]}</span>
+                      <span>{t.title ?? t.nama}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <ul className="riwayat-bariss">
-                {isi.map(({ t, st }) => (
-                  <li key={t.id}>
-                    <span className={`penanda ${st}`}>{TEKS_STATUS[st]}</span>
-                    <span>{t.title ?? t.nama}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })}
-      </div>
-      {terpilih !== kini && (
-        <div className="baris">
-          <button type="button" onClick={() => setTerpilih(kini)}>
-            Kembali ke bulan ini
-          </button>
+            );
+          })}
+          <div className="baris">
+            <button type="button" onClick={() => setDetailTerbuka(null)}>
+              Tutup detail
+            </button>
+          </div>
         </div>
       )}
     </section>
