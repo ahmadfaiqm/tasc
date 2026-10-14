@@ -155,6 +155,7 @@ export default function App() {
   const [galatAuth, setGalatAuth] = useState('');
   const [sibukAuth, setSibukAuth] = useState(false);
   const [sibukSusun, setSibukSusun] = useState(false);
+  const susunRef = useRef(false);
   const [prefillAsisten, setPrefillAsisten] = useState('');
   const sudahMuat = useRef(false);
   const arsipHapus = useRef(null);
@@ -328,11 +329,12 @@ export default function App() {
 
   // Quick Capture -> pratinjau (tanpa preview tidak ada tulis DB dari AI).
   const susun = async () => {
-    if (sibukSusun) return;
+    if (susunRef.current) return;
     if (!paragraf.trim()) {
       tampilkanToast('Tulis dulu paragraf tugasnya');
       return;
     }
+    susunRef.current = true;
     setSibukSusun(true);
     try {
       const now = new Date();
@@ -361,6 +363,7 @@ export default function App() {
       setMode('lokal');
       tampilkanToast(`${lokal.length} kandidat siap diperiksa (mode lokal)`);
     } finally {
+      susunRef.current = false;
       setSibukSusun(false);
     }
   };
