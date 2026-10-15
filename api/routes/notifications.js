@@ -53,26 +53,58 @@ r.post('/subscribe', async (req, res) => {
   if (!['IN_APP', 'BROWSER', 'PUSH'].includes(tipe)) {
     return res.status(400).json({ error: 'tipe notifikasi tidak valid' });
   }
+  const endpoint = req.body?.endpoint ?? null;
+  if (endpoint !== null && (typeof endpoint !== 'string' || endpoint.length > 2000)) {
+    return res.status(400).json({ error: 'endpoint maksimal 2000 karakter' });
+  }
+  const subData = req.body?.subscription_data ?? req.body?.subscriptionData ?? null;
+  if (subData !== null && JSON.stringify(subData).length > 10 * 1024) {
+    return res.status(400).json({ error: 'subscription_data maksimal 10KB' });
+  }
   try {
-    const ada = await prisma.notificationSubscription.findFirst({
+    // Idempoten per (user, tipe): pakai ulang baris nonaktif bila ada
+    // (dulu hanya mencari active:true -> duplikat menumpuk).
+    const aktif = await prisma.notificationSubscription.findFirst({
       where: { userId: req.userId, notificationType: tipe, active: true },
     });
-    const s = ada
+    if (aktif) {
+      const s = await prisma.notificationSubscription.update({
+        where: { id: aktif.id },
+        data: { endpoint: endpoint ?? aktif.endpoint, subscriptionData: subData ?? aktif.subscriptionData },
+      });
+      return res.status(200).json({ id: s.id, notification_type: s.notificationType, active: s.active });
+    }
+    const nonaktif = await prisma.notificationSubscription.findFirst({
+      where: { userId: req.userId, notificationType: tipe, active: false },
+      orderBy: { updatedAt: 'desc' },
+    });
+    const s = nonaktif
       ? await prisma.notificationSubscription.update({
-          where: { id: ada.id },
-          data: { endpoint: req.body?.endpoint ?? ada.endpoint, subscriptionData: req.body?.subscription_data ?? req.body?.subscriptionData ?? ada.subscriptionData },
+          where: { id: nonaktif.id },
+          data: { endpoint, subscriptionData: subData, active: true },
         })
       : await prisma.notificationSubscription.create({
-          data: {
-            userId: req.userId,
-            notificationType: tipe,
-            endpoint: req.body?.endpoint ?? null,
-            subscriptionData: req.body?.subscription_data ?? req.body?.subscriptionData ?? null,
-          },
+          data: { userId: req.userId, notificationType: tipe, endpoint, subscriptionData: subData },
         });
-    return res.status(201).json({ id: s.id, notification_type: s.notificationType, active: s.active });
+    return res.status(nonaktif ? 200 : 201).json({ id: s.id, notification_type: s.notificationType, active: s.active });
   } catch {
     return res.status(500).json({ error: 'gagal menyimpan langganan' });
+  }
+});
+
+r.delete('/subscribe', async (req, res) => {
+  const tipe = req.body?.notification_type ?? req.body?.notificationType ?? req.query.tipe ?? 'BROWSER';
+  if (!['IN_APP', 'BROWSER', 'PUSH'].includes(String(tipe))) {
+    return res.status(400).json({ error: 'tipe notifikasi tidak valid' });
+  }
+  try {
+    const r = await prisma.notificationSubscription.updateMany({
+      where: { userId: req.userId, notificationType: String(tipe), active: true },
+      data: { active: false },
+    });
+    return res.json({ ok: true, dinonaktifkan: r.count });
+  } catch {
+    return res.status(500).json({ error: 'gagal berhenti langganan' });
   }
 });
 

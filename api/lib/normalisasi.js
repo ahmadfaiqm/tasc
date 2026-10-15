@@ -1,6 +1,7 @@
 // api/lib/normalisasi.js — samakan keluaran LLM -> kontrak PRD.
 // Backend memastikan urgency/priority; AI hanya suggest. Tanpa jam -> null (no-fake-time).
 import { tentukanUrgency, saranPriority } from './prioritas.js';
+import { gabungDueZona, ZONA_DEFAULT } from './zona.js';
 
 const JAM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const PRECISION = ['EXACT', 'PERIOD', 'UNSPECIFIED'];
@@ -43,7 +44,7 @@ export function serialkanTask(t) {
   return { ...t, dueTime: formatJam(t.dueTime ?? null) };
 }
 
-export function normalisasiTugas(arr, nowISO) {
+export function normalisasiTugas(arr, nowISO, tz = ZONA_DEFAULT) {
   if (!Array.isArray(arr)) return [];
   const now = nowISO ? new Date(nowISO) : new Date();
   const out = [];
@@ -58,8 +59,9 @@ export function normalisasiTugas(arr, nowISO) {
     if (dueTime == null && precision === 'EXACT') precision = 'UNSPECIFIED';
     const dur = item.duration_minutes ?? item.durationMinutes ?? null;
     const durationMinutes = Number.isInteger(dur) && dur > 0 ? dur : null;
+    // Jam dinding di zona user -> instan UTC (dulu: new Date lokal server = UTC di Vercel).
     const due = dueDate && dueTime
-      ? new Date(`${dueDate}T${dueTime}:00`)
+      ? gabungDueZona(dueDate, dueTime, tz)
       : dueDate ? new Date(`${dueDate}T00:00:00`) : null;
     const urgency = tentukanUrgency(due, now);
     const saran = saranPriority(title);

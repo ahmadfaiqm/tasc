@@ -42,6 +42,15 @@ describe('History fan', () => {
     expect(screen.getByRole('button', { name: /september/i }).getAttribute('aria-current')).toBe('true');
   });
 
+  it('memakai angka server bila onMuatBulan ada', async () => {
+    const onMuatBulan = async (y, m) => {
+      expect(y).toBe(2026);
+      expect(m).toBe(10);
+      return { total: 5, completed: 2, overdue: 1, cancelled: 0, completion_rate: 0.4, urgent: 0, byDay: {} };
+    };
+    render(<History daftar={tigaBulan()} awal="2026-10" onMuatBulan={onMuatBulan} />);
+    await screen.findByText('5', { selector: '.folder-angka-big' });
+  });
   it('panah dan keyboard menggeser; Enter di aktif membuka detail', () => {
     render(<History daftar={tigaBulan()} awal="2026-10" />);
     fireEvent.click(screen.getByLabelText(/bulan berikutnya/i));

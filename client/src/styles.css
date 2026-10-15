@@ -24,6 +24,7 @@
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
+html, body { overflow-x: clip; }
 body {
   margin: 0; font-family: var(--font-judul); font-size: 14px; line-height: 1.6;
   color: var(--ink); background: var(--bg); min-height: 100svh;
@@ -32,7 +33,9 @@ body {
 h1 { font-weight: 500; letter-spacing: -0.03em; }
 h2 { font-size: clamp(28px, 4.4vw, 48px); font-weight: 500; letter-spacing: -0.025em; margin: 0 0 1rem; }
 h3 { font-size: 20px; font-weight: 600; margin: 0 0 0.75rem; }
-button, .mikro, .tab-segmented button { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; }
+button, input, textarea, select { font: inherit; }
+/* Mono uppercase hanya untuk label mikro, bukan tombol aksi (keterbacaan). */
+.mikro, .tab-segmented button { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; }
 .mikro { color: var(--mute); }
 .mikro::before { content: "• "; }
 textarea:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
@@ -41,12 +44,23 @@ textarea, input[type="email"], input[type="password"], input[type="text"] {
   border: 1px solid var(--line); background: var(--sf); color: var(--ink);
   font-family: var(--font-judul); font-size: 14px;
 }
-button { border: none; cursor: pointer; border-radius: 999px; padding: 0.7rem 1.4rem; transition: transform 0.15s ease; }
-button:hover:not(:disabled) { transform: translateY(-1px); }
+button {
+  cursor: pointer; border-radius: 999px; padding: 0.65rem 1.3rem;
+  font-family: var(--font-judul); font-size: 13.5px; font-weight: 600;
+  background: #fff; color: var(--ink);
+  border: 1px solid var(--line);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+button:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--mute); }
 button:disabled { opacity: 0.5; cursor: default; }
+@media (prefers-color-scheme: dark) {
+  button { background: #23252c; }
+}
+.landing-terang button { background: #fff; }
+::placeholder { color: var(--mute); opacity: 1; }
 .galat { color: #c2255c; font-size: 0.9rem; margin: 0; }
 @media (prefers-color-scheme: dark) { .galat { color: #f783ac; } }
-.auth-page { padding: 10px; }
+.auth-page { padding: clamp(0.9rem, 4vw, 1.5rem); }
 .auth-hero {
   min-height: calc(100svh - 20px); border-radius: 28px;
   background:
@@ -78,19 +92,26 @@ button:disabled { opacity: 0.5; cursor: default; }
 .auth-hero .sub { color: #fff; opacity: 0.9; max-width: 30rem; z-index: 1; }
 .auth-card {
   background: #fff; color: #101114; border-radius: 26px; padding: 1.4rem;
-  width: min(26rem, 92vw); z-index: 1; text-align: left;
+  width: min(26rem, calc(100vw - 3.5rem)); z-index: 1; text-align: left;
   box-shadow: 0 30px 70px rgba(8, 40, 110, 0.3);
+}
+@media (max-width: 560px) {
+  .auth-hero { padding: 4.5rem 1.25rem 2.5rem; border-radius: 22px; }
+  .auth-hero h1 { font-size: clamp(30px, 9vw, 44px); }
+  .auth-card { padding: 1.25rem 1.1rem; }
 }
 .tab-segmented { display: grid; grid-template-columns: 1fr 1fr; background: var(--sf); border-radius: 999px; padding: 4px; margin-bottom: 1rem; }
 .tab-segmented button { background: transparent; color: var(--mute); border-radius: 999px; }
 .tab-segmented button[aria-selected="true"] { background: #101114; color: #f3f3f0; }
-.auth-card .tombol-utama { background: var(--lime); color: #101114; width: 100%; font-weight: 700; display: flex; gap: 0.6rem; align-items: center; justify-content: center; }
+.auth-card .tombol-utama { background: var(--lime); color: #101114; border-color: transparent; width: 100%; font-weight: 700; display: flex; gap: 0.6rem; align-items: center; justify-content: center; }
 .tombol-utama .panah { display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem; border-radius: 50%; background: #101114; color: var(--lime); font-size: 12px; }
 .dash-nama { margin-left: auto; color: var(--mute); font-size: 13px; }
-.kartu { background: var(--card); border-radius: 26px; padding: 1rem; box-shadow: 0 0 0 1px var(--line), 0 14px 34px rgba(16, 17, 20, 0.05); }
-.wadah { max-width: 1100px; margin: 0 auto; padding: 1rem; padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1rem, env(safe-area-inset-right)); }
+.kartu { background: var(--card); border-radius: 26px; padding: clamp(1.1rem, 2.5vw, 1.6rem); box-shadow: 0 0 0 1px var(--line), 0 14px 34px rgba(16, 17, 20, 0.05); }
+.badge { display: inline-block; font-size: 12px; color: var(--mute); background: var(--sf); border: 1px solid var(--line); border-radius: 999px; padding: 0.25rem 0.8rem; white-space: nowrap; }
+.privasi { color: var(--mute); font-size: 13px; max-width: 60ch; }
+.wadah { max-width: 1100px; margin: 0 auto; padding: clamp(1rem, 3vw, 1.5rem); padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1rem, env(safe-area-inset-right)); }
 .baris { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.5rem; flex-wrap: wrap; }
-.daftar-tugas { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.5rem; }
+.daftar-tugas { list-style: none; padding: 0; margin: 0.4rem 0 0; display: grid; gap: 0.65rem; }
 .tugas { display: grid; grid-template-columns: auto 1fr auto auto auto; gap: 0.5rem; align-items: center; background: var(--sf); padding: 0.5rem 0.7rem; border-radius: 16px; }
 .tugas input[type="checkbox"] { width: 1.2rem; height: 1.2rem; accent-color: var(--lime); }
 .tugas-nama { overflow-wrap: anywhere; }
@@ -136,17 +157,21 @@ button:disabled { opacity: 0.5; cursor: default; }
   --line: #e4e8ee;
 }
 .topbar {
-  position: sticky; top: 0; z-index: 20; display: flex; gap: 1rem; align-items: center;
+  position: sticky; top: 0; z-index: 20; display: flex; gap: 0.8rem; align-items: center;
   background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(8px);
   padding: 0.7rem 1rem; border-bottom: 1px solid var(--line);
 }
+.topbar > * { min-width: 0; }
+.topbar .dash-nama { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar .tombol-garis { flex-shrink: 0; }
 .tautan-landing { display: flex; gap: 1rem; margin: 0 auto; }
 .tautan-landing a { color: var(--mute); text-decoration: none; font-size: 13px; }
 .tautan-landing a:hover { color: var(--ink); }
 .tombol-garis { background: #fff; color: var(--ink); border: 1px solid var(--line); }
 .salam { display: flex; align-items: baseline; gap: 0.8rem; padding: 1rem 0.2rem 0.4rem; }
 .salam h2 { font-size: clamp(22px, 3vw, 30px); margin: 0; }
-.panel-tiga { display: grid; gap: 0.9rem; grid-template-columns: 0.9fr 1.4fr 1fr; align-items: start; }
+.panel-tiga { display: grid; gap: 1.1rem; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr) minmax(0, 1fr); align-items: start; }
+.panel-tiga > * { min-width: 0; }
 .panel-kiri .konteks { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 0.6rem 0.8rem; font-size: 13px; }
 .angka-besar { font-size: 52px; font-weight: 800; line-height: 1; margin: 0.6rem 0 0; }
 .kartu-aktivitas { background: #f7c948; color: #1c1c1e; border-radius: 18px; padding: 0.9rem; margin-top: 0.7rem; }
@@ -166,7 +191,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 .tugas { grid-template-columns: auto 1fr auto; }
 .task-utama { background: #f6f9fc; border: 1px solid var(--line); border-left: 3px solid var(--ink); border-radius: 14px; padding: 0.8rem 1rem; }
 .task-utama .tugas-nama { font-size: 16px; font-weight: 700; }
-.task-baris { border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; padding: 0.6rem 0.2rem; }
+.task-baris { border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; padding: 0.7rem 0.2rem; }
 .tugas-meta { display: flex; gap: 1.2rem; margin-top: 0.3rem; font-size: 11px; color: var(--mute); }
 .tugas-meta > span { display: grid; gap: 2px; }
 .tugas-meta .tugas-waktu { font-size: 12px; }
@@ -177,7 +202,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 .lencana-low { background: var(--sf); color: var(--mute); box-shadow: inset 0 0 0 1px var(--line); }
 
 /* Kipas rekap bulanan. */
-.kipas { position: relative; height: 238px; margin-top: 0.4rem; }
+.kipas { position: relative; height: 238px; margin-top: 0.4rem; overflow-x: clip; }
 .kipas .kcard {
   position: absolute; left: 50%; top: 6px; width: 164px; height: 214px; margin-left: -82px;
   border: none; border-radius: 18px; padding: 0.8rem; box-sizing: border-box; cursor: pointer;

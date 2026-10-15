@@ -4,6 +4,7 @@
 import { supabase } from './supabase.js';
 
 export const AI_TIMEOUT_MS = 8000;
+const API_TIMEOUT_MS = 20000;
 
 const KUNCI_TOKEN = 'taskman:token';
 
@@ -38,10 +39,10 @@ export function simpanToken(token) {
   } catch { /* abaikan */ }
 }
 
-async function panggilApi(path, { method = 'GET', body } = {}) {
+async function panggilApi(path, { method = 'GET', body, timeout = API_TIMEOUT_MS } = {}) {
   const token = await ambilToken();
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), AI_TIMEOUT_MS);
+  const t = setTimeout(() => ctrl.abort(), timeout);
   try {
     const headers = { 'content-type': 'application/json' };
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -52,7 +53,10 @@ async function panggilApi(path, { method = 'GET', body } = {}) {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     if (!r.ok) throw new Error(`api-${r.status}`);
-    return await r.json();
+    if (r.status === 204) return {};
+    const teks = await r.text();
+    if (!teks) return {};
+    return JSON.parse(teks);
   } finally {
     clearTimeout(t);
   }
@@ -71,13 +75,14 @@ function zonaWaktu() {
 export async function mintaParse(paragraf) {
   return panggilApi('/api/ai/parse', {
     method: 'POST',
+    timeout: AI_TIMEOUT_MS,
     body: { paragraf, now: new Date().toISOString(), timezone: zonaWaktu() },
   });
 }
 
 // POST /api/ai/chat (read-only) -> {jawaban, ...}.
 export async function tanyaAsisten(pesan) {
-  return panggilApi('/api/ai/chat', { method: 'POST', body: { pesan } });
+  return panggilApi('/api/ai/chat', { method: 'POST', timeout: AI_TIMEOUT_MS, body: { pesan } });
 }
 
 // GET /api/tasks -> {tasks:[...]} (due_time selalu HH:MM|null hasil serialisasi).

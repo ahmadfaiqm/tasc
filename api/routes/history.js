@@ -2,28 +2,23 @@
 import { Router } from 'express';
 import prisma from '../lib/prisma.js';
 import { wajibAuth } from '../lib/auth.js';
-import { formatJam } from '../lib/normalisasi.js';
+import { gabungDueZona, ZONA_DEFAULT } from '../lib/zona.js';
 
 const r = Router();
 r.use(wajibAuth);
 
-function gabungDue(dueDate, dueTime) {
-  if (!dueDate) return null;
-  const d = new Date(dueDate);
-  if (Number.isNaN(d.getTime())) return null;
-  const jam = formatJam(dueTime);
-  if (jam) d.setUTCHours(Number(jam.slice(0, 2)), Number(jam.slice(3, 5)), 0, 0);
-  return d;
+function gabungDue(dueDate, dueTime, tz) {
+  return gabungDueZona(dueDate, dueTime, tz ?? ZONA_DEFAULT);
 }
 
-function ringkas(tasks, now) {
+function ringkas(tasks, now, tz) {
   let completed = 0, cancelled = 0, overdue = 0, urgent = 0;
   const byDay = {};
   for (const t of tasks) {
     if (t.status === 'COMPLETED') completed += 1;
     if (t.status === 'CANCELLED') cancelled += 1;
     if (t.status === 'PENDING') {
-      const due = gabungDue(t.dueDate, t.dueTime);
+      const due = gabungDue(t.dueDate, t.dueTime, tz);
       if (due && due < now) overdue += 1;
     }
     if (t.urgency === 'URGENT') urgent += 1;
@@ -47,17 +42,20 @@ function ringkas(tasks, now) {
 async function historiBulan(userId, year, month) {
   const awal = new Date(Date.UTC(year, month - 1, 1));
   const akhir = new Date(Date.UTC(year, month, 1));
-  const tasks = await prisma.task.findMany({
-    where: {
-      userId,
-      deletedAt: null,
-      OR: [
-        { dueDate: { gte: awal, lt: akhir } },
-        { dueDate: null, createdAt: { gte: awal, lt: akhir } },
-      ],
-    },
-  });
-  return ringkas(tasks, new Date());
+  const [user, tasks] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, select: { timezone: true } }).catch(() => null),
+    prisma.task.findMany({
+      where: {
+        userId,
+        deletedAt: null,
+        OR: [
+          { dueDate: { gte: awal, lt: akhir } },
+          { dueDate: null, createdAt: { gte: awal, lt: akhir } },
+        ],
+      },
+    }),
+  ]);
+  return ringkas(tasks, new Date(), user?.timezone ?? ZONA_DEFAULT);
 }
 
 r.get('/', async (req, res) => {

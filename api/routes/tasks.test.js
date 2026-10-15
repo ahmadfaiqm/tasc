@@ -54,6 +54,30 @@ describe('tasks lifecycle', () => {
       .send({ title: '  ' });
     expect(r.status).toBe(400);
   });
+  it('due_date invalid -> 400, bukan silent-null', async () => {
+    for (const bad of ['besok', '2026-13-40', '2026-02-30', '12/01/2026']) {
+      const r = await request(app).post('/api/tasks')
+        .set('Authorization', `Bearer ${buatToken('user-a', 'x', true)}`)
+        .send({ title: 'ada tanggal', due_date: bad });
+      expect(r.status).toBe(400);
+    }
+  });
+  it('PATCH due_date typo -> 400, deadline lama tidak terhapus', async () => {
+    const lama = { id: 't1', userId: 'user-a', status: 'PENDING', dueDate: new Date('2026-01-05T00:00:00.000Z'), dueTime: null };
+    vi.spyOn(prisma.task, 'findFirst').mockResolvedValue(lama);
+    const update = vi.spyOn(prisma.task, 'update').mockResolvedValue(lama);
+    const r = await request(app).patch('/api/tasks/t1')
+      .set('Authorization', `Bearer ${buatToken('user-a', 'x', true)}`)
+      .send({ due_date: 'kapan-kapan' });
+    expect(r.status).toBe(400);
+    expect(update).not.toHaveBeenCalled();
+  });
+  it('GET ?date= invalid -> 400, bukan abaikan filter', async () => {
+    vi.spyOn(prisma.task, 'findMany').mockResolvedValue([]);
+    const r = await request(app).get('/api/tasks?date=kemarin')
+      .set('Authorization', `Bearer ${buatToken('user-a', 'x', true)}`);
+    expect(r.status).toBe(400);
+  });
   it('lintas-user: findFirst milik B tak temukan untuk A -> 404', async () => {
     vi.spyOn(prisma.task, 'findFirst').mockResolvedValue(null);
     const r = await request(app).get('/api/tasks/milik-b')

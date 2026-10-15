@@ -117,11 +117,28 @@ function KartuKipas({ kunci, angka, posisi, aktif, warna, jarak, onPilih, onBuka
   );
 }
 
-export default function History({ daftar = [], awal }) {
+export default function History({ daftar = [], awal, onMuatBulan }) {
   const [terpilih, setTerpilih] = useState(() => awal ?? bulanIni());
   const [detailTerbuka, setDetailTerbuka] = useState(null);
+  const [server, setServer] = useState({});
   const [lebar, setLebar] = useState(() => (typeof window === 'undefined' ? 1100 : window.innerWidth));
   const jarak = pilihJarak(lebar);
+
+  // Angka kartu dari server bila tersedia (bulan lalu / task yang tak dimuat
+  // tetap terhitung); tanpa onMuatBulan -> murni lokal seperti dulu.
+  useEffect(() => {
+    if (!onMuatBulan) return;
+    let batal = false;
+    (async () => {
+      try {
+        const [y, m] = terpilih.split('-').map(Number);
+        if (!y || !m) return;
+        const j = await onMuatBulan(y, m);
+        if (!batal && j) setServer((s) => ({ ...s, [terpilih]: j }));
+      } catch { /* fallback lokal */ }
+    })();
+    return () => { batal = true; };
+  }, [terpilih, onMuatBulan]);
 
   useEffect(() => {
     const atur = () => setLebar(window.innerWidth);
@@ -147,7 +164,25 @@ export default function History({ daftar = [], awal }) {
     return peta;
   }, [daftar]);
 
-  const angka = (k) => perBulan.get(k) ?? { total: 0, selesai: 0, belum: 0, jadwal: 0, batal: 0, tugas: [] };
+  const angka = (k) => {
+    const sv = server[k];
+    if (sv) {
+      const total = sv.total ?? 0;
+      const selesai = sv.completed ?? 0;
+      const belum = sv.overdue ?? 0;
+      const batal = sv.cancelled ?? 0;
+      return {
+        total,
+        selesai,
+        belum,
+        jadwal: Math.max(0, total - selesai - belum - batal),
+        batal,
+        // Detail harian tetap dari task lokal yang dimuat (server hanya agregat).
+        tugas: perBulan.get(k)?.tugas ?? [],
+      };
+    }
+    return perBulan.get(k) ?? { total: 0, selesai: 0, belum: 0, jadwal: 0, batal: 0, tugas: [] };
+  };
   const jendela = [-2, -1, 0, 1, 2].map((d) => geserBulan(terpilih, d));
 
   const pilih = (k) => {

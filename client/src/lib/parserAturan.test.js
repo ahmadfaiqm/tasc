@@ -23,6 +23,12 @@ describe('no-fake-time', () => {
     const r = parseParagraf('Sarapan jam 6', new Date('2026-10-07T08:00:00+07:00'));
     expect(r[0].due_date.getDate()).toBe(8);
   });
+  it('nama hari + jam yang sudah lewat -> minggu depan, bukan masa lalu', () => {
+    // 2026-10-05 = Senin; "Senin jam 6" diucap Senin 08:00.
+    const r = parseParagraf('Senin jam 6 olahraga', new Date('2026-10-05T08:00:00+07:00'));
+    expect(r[0].due_time).toBe('06:00');
+    expect(r[0].due_date.getDate()).toBe(12);
+  });
   it('satu input tiga aktivitas -> tiga task', () => {
     const r = parseParagraf('Besok jam 8 kuliah, siangnya beli sepatu, jam 7 malam kerjakan tugas', now);
     expect(r).toHaveLength(3);

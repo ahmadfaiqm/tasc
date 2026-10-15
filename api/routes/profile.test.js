@@ -51,6 +51,21 @@ describe('profile', () => {
     expect(buat).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ id: 'user-a' }) }));
     expect(r.body.nama).toBe('Budi');
   });
+  it('PATCH parsial (hanya nama) -> 200', async () => {
+    vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({ id: 'user-a', email: 'lama@mail.com', name: 'Lama', aiConsent: false, timezone: 'Asia/Jakarta' });
+    const update = vi.spyOn(prisma.user, 'update').mockResolvedValue({ id: 'user-a', email: 'lama@mail.com', name: 'Baru', aiConsent: false, timezone: 'Asia/Jakarta' });
+    const r = await request(app).patch('/api/profile').set('Authorization', `Bearer ${buatToken('user-a')}`).send({ nama: 'Baru' });
+    expect(r.status).toBe(200);
+    expect(update).toHaveBeenCalledWith({ where: { id: 'user-a' }, data: { name: 'Baru' } });
+  });
+  it('PATCH ganti email user lama -> 400, bukan diabaikan', async () => {
+    vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({ id: 'user-a', email: 'lama@mail.com', name: 'Lama', aiConsent: false, timezone: 'Asia/Jakarta' });
+    const update = vi.spyOn(prisma.user, 'update').mockResolvedValue(null);
+    const r = await request(app).patch('/api/profile').set('Authorization', `Bearer ${buatToken('user-a')}`).send({ nama: 'Baru', aiConsent: true, email: 'baru@mail.com' });
+    expect(r.status).toBe(400);
+    expect(r.body.error).toMatch(/email/i);
+    expect(update).not.toHaveBeenCalled();
+  });
   it('PATCH user lama tanpa email -> 200 update', async () => {
     vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({ id: 'user-a', email: 'lama@mail.com', name: 'Lama', aiConsent: false, timezone: 'Asia/Jakarta' });
     const update = vi.spyOn(prisma.user, 'update').mockResolvedValue({ id: 'user-a', email: 'lama@mail.com', name: 'Baru', aiConsent: true, timezone: 'Asia/Jakarta' });

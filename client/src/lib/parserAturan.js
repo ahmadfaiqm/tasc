@@ -160,8 +160,10 @@ export function parseParagraf(paragraf, now = new Date()) {
       const base = new Date(skrg);
       base.setDate(base.getDate() + offset);
       base.setHours(jam.h, jam.mnt, 0, 0);
-      if (!adaHari && base.getTime() <= skrg.getTime()) {
-        base.setDate(base.getDate() + 1);
+      if (base.getTime() <= skrg.getTime()) {
+        // Jam sudah lewat: tanpa hari -> besok; dengan nama hari -> minggu depan
+        // (dulu: "Senin jam 08.00" diucap Senin pagi langsung jatuh masa lalu).
+        base.setDate(base.getDate() + (adaHari ? 7 : 1));
       }
       due_date = tanggalTengahMalam(base);
     } else if (jam.kind === 'period') {

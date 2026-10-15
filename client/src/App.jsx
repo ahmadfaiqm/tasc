@@ -12,6 +12,7 @@ import {
   simpanToken,
   muatProfil,
   simpanProfil,
+  riwayatBulan,
 } from './lib/api.js';
 import { supabase } from './lib/supabase.js';
 import { hitungBento } from './lib/ringkasan.js';
@@ -63,7 +64,8 @@ function keJamStr(v) {
   if (v == null) return null;
   if (v instanceof Date) {
     if (Number.isNaN(v.getTime())) return null;
-    return `${String(v.getUTCHours()).padStart(2, '0')}:${String(v.getUTCMinutes()).padStart(2, '0')}`;
+    // Jam lokal (dulu getUTC* -> geser ±7 jam vs keTanggalStr yang lokal).
+    return `${String(v.getHours()).padStart(2, '0')}:${String(v.getMinutes()).padStart(2, '0')}`;
   }
   const s = String(v).trim();
   if (/^([01]\d|2[0-3]):[0-5]\d$/.test(s)) return s;
@@ -220,9 +222,8 @@ export default function App() {
           localStorage.removeItem(KUNCI_LOKAL);
         } catch { /* abaikan */ }
         await segarkanDariApi();
-        try {
-          localStorage.removeItem(KUNCI_ANTRI);
-        } catch { /* abaikan */ }
+        // Jangan hapus KUNCI_ANTRI di sini: item yang gagal buatTask
+        // sudah di-push ke antre di loop atas dan ditangani retry 30 dtk.
       } catch {
         setBelumSinkron(true);
       }
@@ -259,51 +260,62 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pengguna]);
 
+  const daftarRef = useRef(daftar);
+  daftarRef.current = daftar;
+
   // Timer 1 dtk: pengingat (hanya bila due_time != null) + hapus-otomatis.
+  // Task tanpa jam kedaluwarsa di AKHIR hari tanggalnya, bukan tengah malam.
+  // Efek samping (toast/Notification) di luar setDaftar agar StrictMode
+  // tidak menggandakannya lewat pemanggilan updater berulang.
   useEffect(() => {
     const id = setInterval(() => {
       const now = Date.now();
-      setDaftar((sebelum) => {
-        let berubah = false;
-        const hapus = [];
-        const sesudah = sebelum.map((t) => {
-          const status = t.status ?? (t.selesai ? 'COMPLETED' : 'PENDING');
-          if (status !== 'PENDING') return t;
-          const due = dueMs(t);
-          if (due == null) return t;
-          const jam = keJamStr(t.due_time);
-          const sisa = due - now;
-          if (jam && sisa > 0 && sisa <= REMINDER_MIN * 60e3 && !t.reminded) {
-            berubah = true;
-            tampilkanToast(`Segera: ${t.title ?? t.nama}`);
-            try {
-              if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification(`Segera: ${t.title ?? t.nama}`);
-              }
-            } catch { /* abaikan */ }
-            return { ...t, reminded: true };
-          }
-          if (due < now) hapus.push(t);
-          return t;
-        }).filter((t) => {
-          const due = dueMs(t);
-          const status = t.status ?? (t.selesai ? 'COMPLETED' : 'PENDING');
-          return status !== 'PENDING' || due == null || due >= now;
-        });
-        if (hapus.length) {
-          berubah = true;
-          clearTimeout(arsipHapus.current?.timer);
-          arsipHapus.current = {
-            tugas: hapus,
-            timer: setTimeout(() => {
-              arsipHapus.current = null;
-              setToast('');
-            }, UNDO_MS),
-          };
-          tampilkanToast(`${hapus.length} tugas lewat waktu dihapus`);
+      const ingatkan = [];
+      const hapus = [];
+      for (const t of daftarRef.current) {
+        const status = t.status ?? (t.selesai ? 'COMPLETED' : 'PENDING');
+        if (status !== 'PENDING') continue;
+        const due = dueMs(t);
+        if (due == null) continue;
+        const jam = keJamStr(t.due_time);
+        let batas = due;
+        if (!jam) {
+          const tgl = keTanggalStr(t.due_date);
+          const akhir = tgl ? new Date(`${tgl}T23:59:59`) : null;
+          if (akhir && !Number.isNaN(akhir.getTime())) batas = akhir.getTime();
         }
-        return berubah ? sesudah : sebelum;
-      });
+        const sisa = due - now;
+        if (jam && sisa > 0 && sisa <= REMINDER_MIN * 60e3 && !t.reminded) {
+          ingatkan.push(t);
+        } else if (batas < now) {
+          hapus.push(t);
+        }
+      }
+      if (!ingatkan.length && !hapus.length) return;
+      for (const t of ingatkan) {
+        tampilkanToast(`Segera: ${t.title ?? t.nama}`);
+        try {
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification(`Segera: ${t.title ?? t.nama}`);
+          }
+        } catch { /* abaikan */ }
+      }
+      if (hapus.length) {
+        clearTimeout(arsipHapus.current?.timer);
+        arsipHapus.current = {
+          tugas: hapus,
+          timer: setTimeout(() => {
+            arsipHapus.current = null;
+            setToast('');
+          }, UNDO_MS),
+        };
+        tampilkanToast(`${hapus.length} tugas lewat waktu dihapus`);
+      }
+      const sHapus = new Set(hapus);
+      const sIngat = new Set(ingatkan);
+      setDaftar((cur) => cur
+        .filter((t) => !sHapus.has(t))
+        .map((t) => (sIngat.has(t) ? { ...t, reminded: true } : t)));
     }, 1000);
     return () => clearInterval(id);
   }, []);
@@ -389,7 +401,18 @@ export default function App() {
   };
 
   const ubahPreview = (i, patch) => {
-    setPreview((p) => p.map((k, x) => (x === i ? perkayaKandidat({ ...k, ...patch }) : k)));
+    setPreview((p) => p.map((k, x) => {
+      if (x !== i) return k;
+      const gabung = { ...k, ...patch };
+      // Asumsi yang sudah dijawab user jangan ditampilkan lagi.
+      if (Array.isArray(gabung.assumptions) && gabung.assumptions.length) {
+        let saring = gabung.assumptions;
+        if (patch.due_date) saring = saring.filter((a) => !/tanggal/i.test(a));
+        if (patch.due_time) saring = saring.filter((a) => !/jam/i.test(a));
+        gabung.assumptions = saring;
+      }
+      return perkayaKandidat(gabung);
+    }));
   };
 
   const batalPreview = (i) => {
@@ -410,11 +433,18 @@ export default function App() {
     const title = (baru.title ?? baru.nama ?? '').trim();
     if (!title) return;
     if (!(await butuhSesi())) return;
+    // Teruskan semua field yang bisa diedit (dulu priority/durasi/deskripsi
+    // ikut ter-reset di server karena tak dikirim).
     const patch = {
       title,
+      description: baru.description ?? null,
       due_date: keTanggalStr(baru.due_date ?? baru.tenggat) ?? null,
       due_time: keJamStr(baru.due_time) ?? null,
+      time_precision: baru.time_precision ?? (keJamStr(baru.due_time) ? 'EXACT' : 'UNSPECIFIED'),
+      duration_minutes: baru.duration_minutes ?? baru.durationMinutes ?? null,
       urgency: baru.urgency ?? baru.urgensi ?? undefined,
+      priority: baru.priority ?? undefined,
+      priority_source: baru.priority_source ?? baru.prioritySource ?? undefined,
     };
     try {
       const r = await ubahTask(id, patch);
@@ -598,7 +628,7 @@ export default function App() {
             <Preview daftar={preview} onKonfirmasi={konfirmasi} onUbah={ubahPreview} onBatal={batalPreview} />
           </>
         }
-        rekap={<History daftar={daftar} />}
+        rekap={<History daftar={daftar} onMuatBulan={riwayatBulan} />}
       />
       <Toast
         pesan={toast}

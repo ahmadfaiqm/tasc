@@ -30,6 +30,7 @@ vi.mock('./lib/api.js', () => ({
   simpanToken: vi.fn(),
   muatProfil: vi.fn(async () => ({ nama: 'Budi', aiConsent: true })),
   simpanProfil: vi.fn(async () => ({})),
+  riwayatBulan: vi.fn(async () => ({ total: 0, completed: 0, overdue: 0, cancelled: 0, completion_rate: 0, urgent: 0, byDay: {} })),
   tanyaAsisten: vi.fn(async () => ({ jawaban: 'ok' })),
 }));
 

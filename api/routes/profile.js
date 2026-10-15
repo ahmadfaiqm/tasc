@@ -8,8 +8,8 @@ const r = Router();
 r.use(wajibAuth);
 
 const skemaPatch = z.object({
-  nama: z.string().trim().min(2, 'nama minimal 2 karakter').max(40, 'nama maksimal 40 karakter'),
-  aiConsent: z.boolean(),
+  nama: z.string().trim().min(2, 'nama minimal 2 karakter').max(40, 'nama maksimal 40 karakter').optional(),
+  aiConsent: z.boolean().optional(),
   email: z.string().trim().email('email tidak valid').optional(),
 });
 
@@ -35,8 +35,21 @@ r.patch('/', async (req, res) => {
     const ada = await prisma.user.findUnique({ where: { id: req.userId } });
     let profil;
     if (ada) {
-      profil = await prisma.user.update({ where: { id: req.userId }, data: { name: nama, aiConsent } });
+      // Email milik Supabase Auth: tolak perubahan diam-diam, jangan diabaikan.
+      if (email !== undefined && email !== ada.email) {
+        return res.status(400).json({ error: 'email tidak dapat diubah' });
+      }
+      const data = {};
+      if (nama !== undefined) data.name = nama;
+      if (aiConsent !== undefined) data.aiConsent = aiConsent;
+      if (!Object.keys(data).length) {
+        return res.status(400).json({ error: 'tidak ada perubahan (kirim nama/aiConsent)' });
+      }
+      profil = await prisma.user.update({ where: { id: req.userId }, data });
     } else {
+      if (nama === undefined || aiConsent === undefined) {
+        return res.status(400).json({ error: 'profil baru wajib mengirim nama dan aiConsent' });
+      }
       if (!email) return res.status(400).json({ error: 'email wajib untuk profil baru' });
       profil = await prisma.user.create({ data: { id: req.userId, email, name: nama, aiConsent } });
     }

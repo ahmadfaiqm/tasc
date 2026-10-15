@@ -28,13 +28,24 @@ export function wajibAuth(req, res, next) {
   // Bila SUPABASE_JWT_SECRET di-set (prod/staging): verifikasi signature HMAC-SHA256, tolak bila tak cocok.
   // Bila env kosong (dev/test): fallback ke decode payload saja seperti perilaku lama.
   const secret = process.env.SUPABASE_JWT_SECRET;
-  if (secret && !verifikasiHmac(token, secret)) {
+  if (!secret) {
+    // Fail-closed di production: misconfig secret tidak boleh jadi akses terbuka.
+    // Dev/test (NODE_ENV != production) tetap boleh decode seperti dulu.
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(401).json({ error: 'auth belum dikonfigurasi' });
+    }
+  } else if (!verifikasiHmac(token, secret)) {
     return res.status(401).json({ error: 'token invalid' });
   }
   try {
     const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString('utf8'));
     const uid = payload.sub;
     if (!uid) return res.status(401).json({ error: 'token invalid' });
+    if (typeof payload.exp === 'number' && Number.isFinite(payload.exp)) {
+      if (Math.floor(Date.now() / 1000) > payload.exp) {
+        return res.status(401).json({ error: 'token kedaluwarsa' });
+      }
+    }
     req.userId = uid;
     return next();
   } catch {

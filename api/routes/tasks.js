@@ -5,60 +5,54 @@ import { wajibAuth } from '../lib/auth.js';
 import { taskBuat, taskUbah } from '../lib/validasi.js';
 import { tentukanUrgency, saranPriority } from '../lib/prioritas.js';
 import { serialkanTask } from '../lib/normalisasi.js';
+import { gabungDueZona, ZONA_DEFAULT } from '../lib/zona.js';
 
 const REMINDER_MIN = 5;
-const ZONA_DEFAULT = 'Asia/Jakarta';
-
-// Offset menit vs UTC untuk zona yang dikenal (tanpa DST); tak dikenal -> default Asia/Jakarta (+7).
-function offsetMenitZona(tz) {
-  switch (String(tz ?? '')) {
-    case 'Asia/Jakarta':
-    case 'Asia/Pontianak':
-      return 7 * 60;
-    case 'Asia/Makassar':
-      return 8 * 60;
-    case 'Asia/Jayapura':
-      return 9 * 60;
-    case 'UTC':
-    case 'Etc/UTC':
-      return 0;
-    default:
-      return 7 * 60;
-  }
-}
-
-// Gabung dueDate (@db.Date, kalender) + dueTime (@db.Time / 'HH:MM') sebagai jam dinding
-// di zona user -> instan UTC. (gabungDue lama memperlakukan jam dinding sebagai UTC.)
-function gabungDueZona(dueDate, dueTime, tz) {
-  if (!dueDate || !dueTime) return null;
-  const d = new Date(dueDate);
-  if (Number.isNaN(d.getTime())) return null;
-  let hh, mm;
-  if (dueTime instanceof Date) {
-    if (Number.isNaN(dueTime.getTime())) return null;
-    hh = dueTime.getUTCHours();
-    mm = dueTime.getUTCMinutes();
-  } else {
-    const m = String(dueTime).trim().match(/^(\d{1,2}):(\d{2})/);
-    if (!m) return null;
-    hh = Number(m[1]);
-    mm = Number(m[2]);
-    if (hh > 23 || mm > 59) return null;
-  }
-  const off = offsetMenitZona(tz ?? ZONA_DEFAULT);
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), hh, mm) - off * 60e3);
-}
 
 const r = Router();
 r.use(wajibAuth);
+
+// Zona user untuk tafsir jam dinding (best-effort; default bila profil belum ada).
+async function zonaUser(userId) {
+  try {
+    const u = await prisma.user.findUnique({ where: { id: userId }, select: { timezone: true } });
+    return u?.timezone ?? ZONA_DEFAULT;
+  } catch {
+    return ZONA_DEFAULT;
+  }
+}
+
+// due_date hanya menerima 'YYYY-MM-DD' kalender valid (tolak rollover
+// seperti 2026-02-30 dan string bebas seperti 'besok'). Kembalikan tri-state:
+// { status: 'kosong' } bila null/undefined/'' (tidak diisi / hapus),
+// { status: 'valid', value: Date }, atau { status: 'invalid' } -> 400.
+function tanggalKalenderValid(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return null;
+  const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;
+  return dt;
+}
 
 function keDueDate(v) {
   if (v == null) return null;
   const s = String(v).trim();
   if (!s) return null;
-  const d = /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(`${s}T00:00:00.000Z`) : new Date(s);
-  return Number.isNaN(d.getTime()) ? null : d;
+  return tanggalKalenderValid(s);
 }
+
+function keDueDateKetat(v) {
+  if (v === undefined || v === null) return { status: 'kosong', value: null };
+  const s = String(v).trim();
+  if (!s) return { status: 'kosong', value: null };
+  const d = tanggalKalenderValid(s);
+  if (!d) return { status: 'invalid' };
+  return { status: 'valid', value: d };
+}
+
+const GALAT_TANGGAL = [{ path: ['due_date'], message: 'due_date harus YYYY-MM-DD kalender valid', code: 'custom' }];
 
 function keDueTime(v) {
   if (v == null) return null;
@@ -68,13 +62,10 @@ function keDueTime(v) {
   return new Date(`1970-01-01T${s}:00.000Z`);
 }
 
-function gabungDue(dueDate, dueTime) {
-  if (!dueDate || !dueTime) return null;
-  const d = new Date(dueDate);
-  const t = new Date(dueTime);
-  if (Number.isNaN(d.getTime()) || Number.isNaN(t.getTime())) return null;
-  d.setUTCHours(t.getUTCHours(), t.getUTCMinutes(), 0, 0);
-  return d;
+// Jam dinding di zona user -> instan UTC (dulu memperlakukan jam dinding sebagai UTC,
+// selisih s.d. 7 jam vs sweep).
+function gabungDue(dueDate, dueTime, tz) {
+  return gabungDueZona(dueDate, dueTime, tz ?? ZONA_DEFAULT);
 }
 
 function ambil(d, ...kunci) {
@@ -84,16 +75,19 @@ function ambil(d, ...kunci) {
   return undefined;
 }
 
-function bangunCreate(body, now) {
+function bangunCreate(body, now, tz) {
   const parsed = taskBuat.safeParse(body);
   if (!parsed.success) return { error: parsed.error };
   const d = parsed.data;
   const title = d.title.trim();
-  const dueDate = keDueDate(ambil(d, 'due_date', 'dueDate'));
+  const ddMentah = ambil(d, 'due_date', 'dueDate');
+  const ddCek = keDueDateKetat(ddMentah);
+  if (ddCek.status === 'invalid') return { error: { issues: GALAT_TANGGAL } };
+  const dueDate = ddCek.value;
   const dueTime = keDueTime(ambil(d, 'due_time', 'dueTime'));
   const timePrecision = ambil(d, 'time_precision', 'timePrecision') ?? 'UNSPECIFIED';
   const saran = saranPriority(title);
-  const due = gabungDue(dueDate, dueTime) ?? dueDate;
+  const due = gabungDue(dueDate, dueTime, tz) ?? dueDate;
   return {
     data: {
       title,
@@ -122,6 +116,10 @@ r.post('/sweep', async (req, res) => {
     ]);
     const tz = user?.timezone ?? ZONA_DEFAULT;
     const menit = setting?.defaultReminderMinutes ?? REMINDER_MIN;
+    // Notifikasi dimatikan -> jangan buat/macem penanda terkirim.
+    if (setting && setting.enabled === false) {
+      return res.json({ dibuat: 0, terkirim: 0 });
+    }
     const tasks = await prisma.task.findMany({
       where: { userId: req.userId, deletedAt: null, status: 'PENDING', dueDate: { not: null }, dueTime: { not: null } },
       select: { id: true, dueDate: true, dueTime: true },
@@ -139,11 +137,10 @@ r.post('/sweep', async (req, res) => {
       await prisma.taskReminder.create({ data: { taskId: t.id, reminderAt } });
       dibuat += 1;
     }
-    const dikirim = await prisma.taskReminder.updateMany({
-      where: { status: 'PENDING', reminderAt: { lte: now }, task: { userId: req.userId, deletedAt: null } },
-      data: { status: 'SENT', sentAt: now },
-    });
-    return res.json({ dibuat, terkirim: dikirim.count });
+    // Server tidak punya kanal kirim (push = P1): yang jatuh tempo tetap PENDING
+    // agar tidak diklaim terkirim. Konsumen masa depan yang mengirim bertugas
+    // menandai SENT; di sini kembalikan terkirim: 0 dengan jujur.
+    return res.json({ dibuat, terkirim: 0 });
   } catch (e) {
     return res.status(500).json({ error: 'sweep gagal' });
   }
@@ -152,12 +149,19 @@ r.post('/sweep', async (req, res) => {
 r.get('/', async (req, res) => {
   try {
     const where = { userId: req.userId, deletedAt: null };
-    if (req.query.status) where.status = String(req.query.status);
-    if (req.query.date) {
-      const d = keDueDate(String(req.query.date));
-      if (d) where.dueDate = d;
+    if (req.query.status) {
+      const st = String(req.query.status);
+      if (!['PENDING', 'COMPLETED', 'CANCELLED'].includes(st)) {
+        return res.status(400).json({ error: 'status tidak valid' });
+      }
+      where.status = st;
     }
-    const tasks = await prisma.task.findMany({ where, orderBy: { createdAt: 'desc' } });
+    if (req.query.date) {
+      const cek = keDueDateKetat(String(req.query.date));
+      if (cek.status === 'invalid') return res.status(400).json({ error: 'query date harus YYYY-MM-DD kalender valid' });
+      if (cek.value) where.dueDate = cek.value;
+    }
+    const tasks = await prisma.task.findMany({ where, orderBy: { createdAt: 'desc' }, take: 500 });
     return res.json({ tasks: tasks.map(serialkanTask) });
   } catch {
     return res.status(500).json({ error: 'gagal memuat tasks' });
@@ -165,7 +169,7 @@ r.get('/', async (req, res) => {
 });
 
 r.post('/', async (req, res) => {
-  const { data, error } = bangunCreate(req.body ?? {}, new Date());
+  const { data, error } = bangunCreate(req.body ?? {}, new Date(), await zonaUser(req.userId));
   if (error) return res.status(400).json({ error: 'validasi gagal', detail: error.issues });
   try {
     const t = await prisma.task.create({ data: { ...data, userId: req.userId } });
@@ -205,7 +209,11 @@ r.patch('/:id', async (req, res) => {
     const st = ambil(d, 'source_text', 'sourceText');
     if (st !== undefined) patch.sourceText = st;
     const dd = ambil(d, 'due_date', 'dueDate');
-    if (dd !== undefined) patch.dueDate = keDueDate(dd);
+    if (dd !== undefined) {
+      const cek = keDueDateKetat(dd);
+      if (cek.status === 'invalid') return res.status(400).json({ error: 'due_date harus YYYY-MM-DD kalender valid' });
+      patch.dueDate = cek.value;
+    }
     const dt = ambil(d, 'due_time', 'dueTime');
     if (dt !== undefined) patch.dueTime = keDueTime(dt);
     const tp = ambil(d, 'time_precision', 'timePrecision');
@@ -221,7 +229,8 @@ r.patch('/:id', async (req, res) => {
     const aa = ambil(d, 'ai_assumption', 'aiAssumption');
     if (aa !== undefined) patch.aiAssumption = aa;
     if (patch.dueDate !== undefined || patch.dueTime !== undefined) {
-      const due = gabungDue(patch.dueDate ?? lama.dueDate, patch.dueTime ?? lama.dueTime) ?? patch.dueDate ?? lama.dueDate;
+      const tz = await zonaUser(req.userId);
+      const due = gabungDue(patch.dueDate ?? lama.dueDate, patch.dueTime ?? lama.dueTime, tz) ?? patch.dueDate ?? lama.dueDate;
       if (d.urgency === undefined) patch.urgency = tentukanUrgency(due, new Date());
     }
     const t = await prisma.task.update({ where: { id: lama.id }, data: patch });

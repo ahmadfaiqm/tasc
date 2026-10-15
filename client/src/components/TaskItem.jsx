@@ -33,7 +33,7 @@ function jamStr(v) {
   if (v == null) return '';
   if (v instanceof Date) {
     if (Number.isNaN(v.getTime())) return '';
-    return `${String(v.getUTCHours()).padStart(2, '0')}:${String(v.getUTCMinutes()).padStart(2, '0')}`;
+    return `${String(v.getHours()).padStart(2, '0')}:${String(v.getMinutes()).padStart(2, '0')}`;
   }
   const s = String(v).trim();
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(s) ? s : '';

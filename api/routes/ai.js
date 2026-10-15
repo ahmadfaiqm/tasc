@@ -4,20 +4,36 @@ import prisma from '../lib/prisma.js';
 import { wajibAuth } from '../lib/auth.js';
 import { chatMasuk } from '../lib/validasi.js';
 import { panggilLLM } from '../lib/llmGratis.js';
-import { normalisasiTugas, formatJam } from '../lib/normalisasi.js';
+import { normalisasiTugas } from '../lib/normalisasi.js';
+import { gabungDueZona, ZONA_DEFAULT } from '../lib/zona.js';
 
 const r = Router();
 r.use(wajibAuth);
 
+const PARAGRAF_MAX = 4000;
+
+// Zona user best-effort untuk tafsir jam dinding.
+async function zonaUser(userId) {
+  try {
+    const u = await prisma.user.findUnique({ where: { id: userId }, select: { timezone: true } });
+    return u?.timezone ?? ZONA_DEFAULT;
+  } catch {
+    return ZONA_DEFAULT;
+  }
+}
+
 r.post('/parse', async (req, res) => {
-  const { paragraf, now, timezone } = req.body ?? {};
+  const { paragraf } = req.body ?? {};
   if (!paragraf || !String(paragraf).trim()) return res.status(400).json({ error: 'paragraf wajib diisi' });
-  const nowISO = now ?? new Date().toISOString();
-  const tz = timezone ?? 'Asia/Jakarta';
+  if (String(paragraf).length > PARAGRAF_MAX) return res.status(400).json({ error: `paragraf maksimal ${PARAGRAF_MAX} karakter` });
+  // Waktu server + zona dari profil: kiriman client (now/timezone) diabaikan
+  // agar tak bisa memanipulasi resolusi tanggal LLM.
+  const nowISO = new Date().toISOString();
+  const tz = await zonaUser(req.userId);
   try {
     const mentah = await panggilLLM(String(paragraf), nowISO, tz);
     if (!mentah) return res.json({ sumber: 'lokal', tasks: [] });
-    const tasks = normalisasiTugas(mentah, nowISO);
+    const tasks = normalisasiTugas(mentah, nowISO, tz);
     try {
       await prisma.aiInteraction.create({
         data: {
@@ -54,18 +70,15 @@ r.post('/chat', async (req, res) => {
     const bawah = pesan.toLowerCase();
     const now = new Date();
     if (/terlambat|lewat|overdue|tunggak/.test(bawah)) {
+      const tz = await zonaUser(req.userId).catch(() => ZONA_DEFAULT);
       const tasks = await prisma.task.findMany({
         where: { userId: req.userId, deletedAt: null, status: 'PENDING' },
         orderBy: { dueDate: 'asc' },
       });
       const lewat = tasks.filter((t) => {
         if (!t.dueDate) return false;
-        const d = new Date(t.dueDate);
-        if (t.dueTime) {
-          const jam = formatJam(t.dueTime);
-          if (jam) d.setUTCHours(Number(jam.slice(0, 2)), Number(jam.slice(3, 5)), 0, 0);
-        }
-        return d < now;
+        const due = gabungDueZona(t.dueDate, t.dueTime ?? null, tz) ?? new Date(t.dueDate);
+        return due < now;
       });
       const daftar = lewat.map((t) => `- ${t.title}`).join('\n') || '(tidak ada)';
       return res.json({ jawaban: `Task terlambat (${lewat.length}):\n${daftar}`, jumlah: lewat.length });
