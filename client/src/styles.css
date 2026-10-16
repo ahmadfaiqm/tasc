@@ -2,6 +2,7 @@
 :root {
   color-scheme: light dark;
   --bg: #ffffff;
+  --asl: #87ceeb;
   --sf: #f3f3f1;
   --card: #ffffff;
   --ink: #101114;
@@ -15,6 +16,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0e0f12;
+    --asl:#87ceeb;
     --sf: #1b1c21;
     --card: #17181c;
     --ink: #f3f3f0;
@@ -27,7 +29,7 @@ html { scroll-behavior: smooth; }
 html, body { overflow-x: clip; }
 body {
   margin: 0; font-family: var(--font-judul); font-size: 14px; line-height: 1.6;
-  color: var(--ink); background: var(--bg); min-height: 100svh;
+  color: var(--ink); background: var(--asl); min-height: 100svh;
   padding-bottom: env(safe-area-inset-bottom);
 }
 h1 { font-weight: 500; letter-spacing: -0.03em; }
