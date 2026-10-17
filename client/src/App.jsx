@@ -161,6 +161,8 @@ export default function App() {
   const [prefillAsisten, setPrefillAsisten] = useState('');
   const arsipHapus = useRef(null);
   const timerToast = useRef(null);
+  // Dedupe provision profil (StrictMode menggandakan efek; hindari dua create).
+  const pastikanProfilRef = useRef(new Set());
 
   const tampilkanToast = (pesan) => {
     setToast(pesan);
@@ -176,15 +178,29 @@ export default function App() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Muat profil setiap sesi tersedia (restore, Google, password).
+  // Muat profil setiap sesi tersedia (restore, Google, password). Bila baris
+  // belum ada (404) -> buat otomatis agar penulisan task tidak melanggar FK
+  // tasks_user_id_fkey. Nama awal "human", consent AI mati (bisa diubah user).
   useEffect(() => {
     if (!pengguna) return;
+    const kunci = pengguna.id ?? pengguna.email ?? 'sesi';
+    if (pastikanProfilRef.current.has(kunci)) return;
+    pastikanProfilRef.current.add(kunci);
     (async () => {
       try {
         const p = await muatProfil();
         setProfil({ nama: p?.nama ?? '', aiConsent: Boolean(p?.aiConsent) });
-      } catch {
-        setProfil({ nama: '', aiConsent: false });
+      } catch (e) {
+        if (e?.message !== 'api-404') {
+          setProfil({ nama: '', aiConsent: false });
+          return;
+        }
+        try {
+          const p = await simpanProfil({ nama: 'human', aiConsent: false, email: pengguna?.email });
+          setProfil({ nama: p?.nama ?? 'human', aiConsent: Boolean(p?.aiConsent) });
+        } catch {
+          setProfil({ nama: '', aiConsent: false });
+        }
       }
     })();
   }, [pengguna]);
@@ -478,6 +494,23 @@ export default function App() {
     }
   };
 
+  const ubahNama = async (namaBaru) => {
+    const nama = String(namaBaru ?? '').trim();
+    if (nama.length < 2 || nama.length > 40) {
+      tampilkanToast('Nama harus 2–40 karakter');
+      return false;
+    }
+    try {
+      const p = await simpanProfil({ nama });
+      setProfil((s) => ({ ...s, nama: p?.nama ?? nama }));
+      tampilkanToast('Nama diperbarui');
+      return true;
+    } catch {
+      tampilkanToast('Gagal menyimpan nama — coba lagi');
+      return false;
+    }
+  };
+
   const mintaIzinNotifikasi = async () => {
     if (!('Notification' in window)) {
       tampilkanToast('Browser tidak mendukung notifikasi');
@@ -501,12 +534,6 @@ export default function App() {
       }
       setGalatAuth('');
       tampilkanToast('Masuk berhasil');
-      try {
-        const p = await muatProfil();
-        setProfil({ nama: p?.nama ?? '', aiConsent: Boolean(p?.aiConsent) });
-      } catch {
-        setProfil({ nama: '', aiConsent: false });
-      }
     } finally {
       setSibukAuth(false);
     }
@@ -579,6 +606,7 @@ export default function App() {
         nama={profil.nama}
         email={pengguna?.email}
         onKeluar={keluar}
+        onUbahNama={ubahNama}
         tugas={
           <>
             {belumSinkron && <p className="banner">Belum tersinkron — perubahan disimpan lokal, retry otomatis.</p>}

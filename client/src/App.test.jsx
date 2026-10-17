@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, act, waitFor } from '@testing-library/react';
 import App from './App.jsx';
 
@@ -39,6 +39,7 @@ if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
 }
 
 afterEach(cleanup);
+beforeEach(() => vi.clearAllMocks());
 
 async function masukLanding() {
   render(<App />);
@@ -68,5 +69,44 @@ describe('App core flow', () => {
     expect(api.buatTask).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('checkbox', { name: /tandai selesai: rapat/i }));
     await waitFor(() => expect(api.selesaikanTask).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe('profil', () => {
+  it('login tanpa baris profil -> dibuat otomatis dengan nama "human"', async () => {
+    const api = await import('./lib/api.js');
+    api.muatProfil.mockRejectedValueOnce(new Error('api-404'));
+    render(<App />);
+    await screen.findByText(/halo, human/i);
+    expect(api.simpanProfil).toHaveBeenCalledWith({ nama: 'human', aiConsent: false, email: 'a@mail.com' });
+  });
+
+  it('gagal muat profil selain 404 -> tidak membuat baris', async () => {
+    const api = await import('./lib/api.js');
+    api.muatProfil.mockRejectedValueOnce(new Error('api-500'));
+    render(<App />);
+    await screen.findByText(/halo, teman/i);
+    expect(api.simpanProfil).not.toHaveBeenCalled();
+  });
+
+  it('ubah nama -> tersimpan dan sapaan berubah', async () => {
+    const api = await import('./lib/api.js');
+    api.simpanProfil.mockResolvedValueOnce({ nama: 'Ani' });
+    await masukLanding();
+    fireEvent.click(screen.getByRole('button', { name: /ubah nama/i }));
+    fireEvent.change(screen.getByLabelText(/nama baru/i), { target: { value: 'Ani' } });
+    fireEvent.click(screen.getByRole('button', { name: /^simpan$/i }));
+    await waitFor(() => expect(api.simpanProfil).toHaveBeenCalledWith({ nama: 'Ani' }));
+    await screen.findByText(/halo, ani/i);
+  });
+
+  it('nama < 2 karakter ditolak, tidak dikirim ke server', async () => {
+    const api = await import('./lib/api.js');
+    await masukLanding();
+    fireEvent.click(screen.getByRole('button', { name: /ubah nama/i }));
+    fireEvent.change(screen.getByLabelText(/nama baru/i), { target: { value: 'A' } });
+    fireEvent.click(screen.getByRole('button', { name: /^simpan$/i }));
+    await screen.findByText(/2–40|2-40/);
+    expect(api.simpanProfil).not.toHaveBeenCalled();
   });
 });

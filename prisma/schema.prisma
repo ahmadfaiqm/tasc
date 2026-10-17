@@ -5,6 +5,12 @@ datasource db {
 }
 generator client {
   provider = "prisma-client-js"
+  // Pin lokasi client agar `prisma generate` (dari root maupun api/) selalu
+  // menaruh client di tempat yang di-resolve runtime api/ (@prisma/client
+  // me-require bare specifier `.prisma/client` dari node_modules api).
+  // Sebelum ini generate ke node_modules root sementara api/ memuat salinan
+  // lama di api/node_modules/.prisma/client (schema basi).
+  output   = "../api/node_modules/.prisma/client"
 }
 enum AuthProvider {
   LOCAL
@@ -76,8 +82,8 @@ model User {
   authProvider AuthProvider @default(LOCAL) @map("auth_provider")
   timezone     String   @default("Asia/Jakarta") @db.VarChar(100)
   aiConsent    Boolean  @default(false) @map("ai_consent")
-  createdAt    DateTime @map("created_at") @db.Timestamp(6)
-  updatedAt    DateTime @map("updated_at") @db.Timestamp(6)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime @default(now()) @map("updated_at") @db.Timestamp(6)
   tasks        Task[]
   aiInteractions AiInteraction[]
   recommendations TaskRecommendation[]

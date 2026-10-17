@@ -1,6 +1,21 @@
 // client/src/components/Dashboard.jsx
 // Cangkang satu landing: topbar + sapaan + slot tugas + slot rekap. Tanpa tab, tanpa mode tamu.
-export default function Dashboard({ nama, email, onKeluar, tugas, rekap }) {
+import { useState } from 'react';
+
+export default function Dashboard({ nama, email, onKeluar, onUbahNama, tugas, rekap }) {
+  const [ubah, setUbah] = useState(false);
+  const [draft, setDraft] = useState('');
+
+  const bukaUbah = () => {
+    setDraft(nama ?? '');
+    setUbah(true);
+  };
+  const simpanNama = async (e) => {
+    e.preventDefault();
+    const ok = await onUbahNama?.(draft);
+    if (ok) setUbah(false);
+  };
+
   return (
     <div>
       <header className="topbar">
@@ -13,7 +28,26 @@ export default function Dashboard({ nama, email, onKeluar, tugas, rekap }) {
           <a href="#bagian-rekap">Rekap</a>
           <a href="#asisten">Asisten</a>
         </nav>
-        <span className="dash-nama">{nama || email || 'Teman'}</span>
+        {ubah ? (
+          <form className="baris" style={{ marginLeft: 'auto', marginTop: 0 }} onSubmit={simpanNama}>
+            <input
+              aria-label="Nama baru"
+              value={draft}
+              maxLength={40}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setUbah(false); }}
+            />
+            <button type="submit">Simpan</button>
+            <button type="button" className="tombol-garis" onClick={() => setUbah(false)}>Batal</button>
+          </form>
+        ) : (
+          <>
+            <span className="dash-nama">{nama || email || 'Teman'}</span>
+            {onUbahNama && (
+              <button type="button" className="tombol-garis" onClick={bukaUbah}>Ubah nama</button>
+            )}
+          </>
+        )}
         <button type="button" className="tombol-garis" onClick={onKeluar}>
           Keluar
         </button>

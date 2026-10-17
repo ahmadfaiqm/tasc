@@ -1,8 +1,14 @@
 // api/routes/ai.test.js
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 import app from '../app.js';
 import { normalisasiTugas } from '../lib/normalisasi.js';
+
+// Token uji di sini mengandalkan jalur decode-dev (tanpa verifikasi HMAC).
+// .env lokal memuat SUPABASE_JWT_SECRET; hapus agar hasil tes tak bergantung env.
+beforeEach(() => {
+  delete process.env.SUPABASE_JWT_SECRET;
+});
 
 const token = `a.${Buffer.from(JSON.stringify({ sub: '00000000-0000-0000-0000-000000000000' })).toString('base64')}.c`;
 const auth = { Authorization: `Bearer ${token}` };
