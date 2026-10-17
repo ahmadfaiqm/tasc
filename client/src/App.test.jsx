@@ -5,7 +5,11 @@ import App from './App.jsx';
 vi.mock('./lib/supabase.js', () => ({
   supabase: {
     auth: {
-      getSession: async () => ({ data: { session: { user: { email: 'a@mail.com' } } } }),
+      getSession: async () => ({
+        data: {
+          session: { user: { email: 'a@mail.com', user_metadata: { avatar_url: 'https://x/a.png' } } },
+        },
+      }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
       signInWithPassword: async () => ({}),
       signUp: async () => ({}),
@@ -93,8 +97,9 @@ describe('profil', () => {
     const api = await import('./lib/api.js');
     api.simpanProfil.mockResolvedValueOnce({ nama: 'Ani' });
     await masukLanding();
-    fireEvent.click(screen.getByRole('button', { name: /ubah nama/i }));
-    fireEvent.change(screen.getByLabelText(/nama baru/i), { target: { value: 'Ani' } });
+    fireEvent.click(screen.getByRole('button', { name: /menu profil/i }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /pengaturan profil/i }));
+    fireEvent.change(screen.getByLabelText(/^nama$/i), { target: { value: 'Ani' } });
     fireEvent.click(screen.getByRole('button', { name: /^simpan$/i }));
     await waitFor(() => expect(api.simpanProfil).toHaveBeenCalledWith({ nama: 'Ani' }));
     await screen.findByText(/halo, ani/i);
@@ -103,10 +108,17 @@ describe('profil', () => {
   it('nama < 2 karakter ditolak, tidak dikirim ke server', async () => {
     const api = await import('./lib/api.js');
     await masukLanding();
-    fireEvent.click(screen.getByRole('button', { name: /ubah nama/i }));
-    fireEvent.change(screen.getByLabelText(/nama baru/i), { target: { value: 'A' } });
+    fireEvent.click(screen.getByRole('button', { name: /menu profil/i }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /pengaturan profil/i }));
+    fireEvent.change(screen.getByLabelText(/^nama$/i), { target: { value: 'A' } });
     fireEvent.click(screen.getByRole('button', { name: /^simpan$/i }));
     await screen.findByText(/2–40|2-40/);
     expect(api.simpanProfil).not.toHaveBeenCalled();
+  });
+
+  it('foto akun Google dari sesi tampil di avatar', async () => {
+    await masukLanding();
+    const img = screen.getByRole('button', { name: /menu profil/i }).querySelector('img');
+    expect(img?.getAttribute('src')).toBe('https://x/a.png');
   });
 });

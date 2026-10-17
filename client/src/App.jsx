@@ -15,6 +15,7 @@ import {
   riwayatBulan,
 } from './lib/api.js';
 import { supabase } from './lib/supabase.js';
+import { fotoProfil } from './lib/profil.js';
 import { hitungBento } from './lib/ringkasan.js';
 import AuthPage from './components/AuthPage.jsx';
 import Dashboard from './components/Dashboard.jsx';
@@ -605,6 +606,7 @@ export default function App() {
       <Dashboard
         nama={profil.nama}
         email={pengguna?.email}
+        foto={fotoProfil(pengguna)}
         onKeluar={keluar}
         onUbahNama={ubahNama}
         tugas={

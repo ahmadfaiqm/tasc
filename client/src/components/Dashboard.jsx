@@ -1,19 +1,16 @@
 // client/src/components/Dashboard.jsx
-// Cangkang satu landing: topbar + sapaan + slot tugas + slot rekap. Tanpa tab, tanpa mode tamu.
+// Cangkang satu landing: topbar (avatar profil di kanan atas) + sapaan + slot tugas + slot rekap.
 import { useState } from 'react';
+import { inisialProfil } from '../lib/profil.js';
+import PengaturanProfil from './PengaturanProfil.jsx';
 
-export default function Dashboard({ nama, email, onKeluar, onUbahNama, tugas, rekap }) {
-  const [ubah, setUbah] = useState(false);
-  const [draft, setDraft] = useState('');
+export default function Dashboard({ nama, email, foto, onKeluar, onUbahNama, tugas, rekap }) {
+  const [menuTerbuka, setMenuTerbuka] = useState(false);
+  const [pengaturanTerbuka, setPengaturanTerbuka] = useState(false);
 
-  const bukaUbah = () => {
-    setDraft(nama ?? '');
-    setUbah(true);
-  };
-  const simpanNama = async (e) => {
-    e.preventDefault();
-    const ok = await onUbahNama?.(draft);
-    if (ok) setUbah(false);
+  const bukaPengaturan = () => {
+    setMenuTerbuka(false);
+    setPengaturanTerbuka(true);
   };
 
   return (
@@ -28,29 +25,36 @@ export default function Dashboard({ nama, email, onKeluar, onUbahNama, tugas, re
           <a href="#bagian-rekap">Rekap</a>
           <a href="#asisten">Asisten</a>
         </nav>
-        {ubah ? (
-          <form className="baris" style={{ marginLeft: 'auto', marginTop: 0 }} onSubmit={simpanNama}>
-            <input
-              aria-label="Nama baru"
-              value={draft}
-              maxLength={40}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Escape') setUbah(false); }}
-            />
-            <button type="submit">Simpan</button>
-            <button type="button" className="tombol-garis" onClick={() => setUbah(false)}>Batal</button>
-          </form>
-        ) : (
-          <>
-            <span className="dash-nama">{nama || email || 'Teman'}</span>
-            {onUbahNama && (
-              <button type="button" className="tombol-garis" onClick={bukaUbah}>Ubah nama</button>
+        <div className="profil">
+          <button
+            type="button"
+            className="avatar"
+            aria-label="Menu profil"
+            aria-haspopup="menu"
+            aria-expanded={menuTerbuka}
+            onClick={() => setMenuTerbuka((v) => !v)}
+          >
+            {foto ? (
+              <img src={foto} alt="" />
+            ) : (
+              <span aria-hidden="true">{inisialProfil(nama, email)}</span>
             )}
-          </>
-        )}
-        <button type="button" className="tombol-garis" onClick={onKeluar}>
-          Keluar
-        </button>
+          </button>
+          {menuTerbuka && (
+            <div role="menu" aria-label="Profil" className="profil-menu">
+              <div className="profil-kepala">
+                <strong>{nama || 'Teman'}</strong>
+                <span className="profil-email">{email}</span>
+              </div>
+              <button type="button" role="menuitem" onClick={bukaPengaturan}>
+                <span aria-hidden="true">⚙️</span> Pengaturan profil
+              </button>
+              <button type="button" role="menuitem" className="profil-keluar" onClick={onKeluar}>
+                <span aria-hidden="true">↪</span> Keluar
+              </button>
+            </div>
+          )}
+        </div>
       </header>
       <main>
         <div className="salam">
@@ -60,6 +64,15 @@ export default function Dashboard({ nama, email, onKeluar, onUbahNama, tugas, re
         <div id="bagian-tugas">{tugas}</div>
         <div id="bagian-rekap">{rekap}</div>
       </main>
+      {pengaturanTerbuka && (
+        <PengaturanProfil
+          nama={nama}
+          email={email}
+          foto={foto}
+          onSimpan={onUbahNama}
+          onTutup={() => setPengaturanTerbuka(false)}
+        />
+      )}
     </div>
   );
 }
