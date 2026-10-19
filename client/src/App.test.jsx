@@ -122,3 +122,50 @@ describe('profil', () => {
     expect(img?.getAttribute('src')).toBe('https://x/a.png');
   });
 });
+
+describe('mode tugas (Asisten / Manual)', () => {
+  it('tidak ada lagi badge mode di layar', async () => {
+    await masukLanding();
+    expect(screen.queryByText(/mode lokal/i)).toBeNull();
+    expect(screen.queryByText(/mode ai/i)).toBeNull();
+    expect(screen.queryByText(/pakai mode lokal/i)).toBeNull();
+  });
+
+  it('satu tombol switch berpindah Manual <-> Asisten', async () => {
+    await masukLanding();
+    expect(screen.queryByLabelText(/^judul$/i)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /^manual$/i }));
+    expect(screen.getByLabelText(/^judul$/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /^asisten$/i }));
+    expect(screen.queryByLabelText(/^judul$/i)).toBeNull();
+  });
+
+  it('mode manual: tanggal memunculkan hari, lalu menambah tugas', async () => {
+    const api = await import('./lib/api.js');
+    await masukLanding();
+    fireEvent.click(screen.getByRole('button', { name: /^manual$/i }));
+    fireEvent.change(screen.getByLabelText(/^judul$/i), { target: { value: 'Belikan galon air' } });
+    fireEvent.change(screen.getByLabelText(/^tanggal$/i), { target: { value: '2026-10-19' } });
+    expect(screen.getByText(/senin, 19 okt 2026/i)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(/^jam$/i), { target: { value: '09:00' } });
+    fireEvent.click(screen.getByRole('button', { name: /^penting$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /tambah tugas/i }));
+    await waitFor(() => expect(api.buatTask).toHaveBeenCalledTimes(1));
+    expect(api.buatTask.mock.calls[0][0]).toMatchObject({
+      title: 'Belikan galon air',
+      due_date: '2026-10-19',
+      due_time: '09:00',
+      urgency: 'URGENT',
+    });
+    await screen.findByText(/tugas tersimpan/i);
+  });
+
+  it('AI gagal -> tidak jatuh ke parser lokal, muncul pesan galat', async () => {
+    const api = await import('./lib/api.js');
+    api.mintaParse.mockRejectedValueOnce(new Error('api-500'));
+    await masukLanding();
+    fireEvent.click(screen.getByRole('button', { name: /susun jadi tugas/i }));
+    await screen.findByText(/gagal menghubungi ai/i);
+    expect(screen.queryByRole('button', { name: /konfirmasi/i })).toBeNull();
+  });
+});

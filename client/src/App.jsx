@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { parseParagraf, tentukanUrgency, saranPriority, saranUrutan, REMINDER_MIN } from './lib/parserAturan.js';
+import { tentukanUrgency, saranPriority, saranUrutan, REMINDER_MIN } from './lib/parserAturan.js';
+import { hariTanggal } from './lib/tanggal.js';
 import {
   mintaParse,
   muatTasks,
@@ -160,8 +161,11 @@ export default function App() {
   const [paragraf, setParagraf] = useState('');
   const [daftar, setDaftar] = useState([]);
   const [preview, setPreview] = useState([]);
-  const [mode, setMode] = useState('lokal');
-  const [paksaLokal, setPaksaLokal] = useState(false);
+  const [manual, setManual] = useState(false);
+  const [judulManual, setJudulManual] = useState('');
+  const [tanggalManual, setTanggalManual] = useState('');
+  const [jamManual, setJamManual] = useState('');
+  const [urgensiManual, setUrgensiManual] = useState('NORMAL');
   const [toast, setToast] = useState('');
   const [belumSinkron, setBelumSinkron] = useState(false);
   const [pengguna, setPengguna] = useState(null);
@@ -365,7 +369,7 @@ export default function App() {
     return true;
   };
 
-  // Quick Capture -> pratinjau (tanpa preview tidak ada tulis DB dari AI).
+  // Quick Capture -> pratinjau (selalu lewat AI; tanpa preview tidak ada tulis DB).
   const susun = async () => {
     if (susunRef.current) return;
     if (!paragraf.trim()) {
@@ -375,35 +379,29 @@ export default function App() {
     susunRef.current = true;
     setSibukSusun(true);
     try {
-      const now = new Date();
-      if (!paksaLokal) {
-        try {
-          const hasil = await mintaParse(paragraf);
-          if (Array.isArray(hasil?.tasks) && hasil.tasks.length) {
-            setPreview(hasil.tasks.map(perkayaKandidat));
-            setMode(hasil.sumber === 'ai' ? 'ai' : 'lokal');
-            tampilkanToast(`${hasil.tasks.length} kandidat siap diperiksa (mode ${hasil.sumber === 'ai' ? 'AI' : 'lokal'})`);
-            return;
-          }
-          if (hasil?.sumber === 'lokal') throw new Error('fallback-lokal');
-          if (!hasil?.tasks?.length) {
-            // AI menjawab kosong -> tetap tawarkan baca lokal.
-            const lokal = parseParagraf(paragraf, now).map(perkayaKandidat);
-            setPreview(lokal);
-            setMode('lokal');
-            tampilkanToast(`${lokal.length} kandidat siap diperiksa (mode lokal)`);
-            return;
-          }
-        } catch { /* jatuh ke lokal */ }
+      const hasil = await mintaParse(paragraf);
+      if (Array.isArray(hasil?.tasks) && hasil.tasks.length) {
+        setPreview(hasil.tasks.map(perkayaKandidat));
+        tampilkanToast(`${hasil.tasks.length} kandidat siap diperiksa`);
+        return;
       }
-      const lokal = parseParagraf(paragraf, now).map(perkayaKandidat);
-      setPreview(lokal);
-      setMode('lokal');
-      tampilkanToast(`${lokal.length} kandidat siap diperiksa (mode lokal)`);
+      tampilkanToast('AI tidak menemukan tugas — tulis lebih jelas, atau pakai mode Manual');
+    } catch (e) {
+      tampilkanToast(`Gagal menghubungi AI (${sebabGagal(e)}) — coba lagi atau pakai mode Manual`);
     } finally {
       susunRef.current = false;
       setSibukSusun(false);
     }
+  };
+
+  // Simpan payload ke antrean retry bila API gagal (dipakai konfirmasi & manual).
+  const antrikan = (payload, e) => {
+    console.error('buatTask gagal:', e);
+    const antri = muat(KUNCI_ANTRI, []);
+    antri.push(payload);
+    try { localStorage.setItem(KUNCI_ANTRI, JSON.stringify(antri)); } catch { /* abaikan */ }
+    setBelumSinkron(true);
+    tampilkanToast(`Gagal menyimpan (${sebabGagal(e)}) — masuk antrean, retry otomatis`);
   };
 
   const konfirmasi = async (i) => {
@@ -416,17 +414,38 @@ export default function App() {
       setDaftar((d) => [...d, dariApi(tersimpan)]);
       tampilkanToast('Tugas tersimpan');
     } catch (e) {
-      console.error('buatTask gagal:', e);
-      const antri = muat(KUNCI_ANTRI, []);
-      antri.push(payload);
-      try {
-        localStorage.setItem(KUNCI_ANTRI, JSON.stringify(antri));
-      } catch { /* abaikan */ }
-      setBelumSinkron(true);
-      tampilkanToast(`Gagal menyimpan (${sebabGagal(e)}) — masuk antrean, retry otomatis`);
+      antrikan(payload, e);
       return;
     }
     setPreview((p) => p.filter((_, x) => x !== i));
+  };
+
+  // Mode Manual: isi 4 bidang -> simpan langsung via API.
+  const simpanManual = async () => {
+    const title = judulManual.trim();
+    if (!title) { tampilkanToast('Judul tugas belum diisi'); return; }
+    if (!(await butuhSesi())) return;
+    const payload = {
+      title,
+      description: null,
+      source_text: null,
+      due_date: tanggalManual || null,
+      due_time: jamManual || null,
+      time_precision: jamManual ? 'EXACT' : 'UNSPECIFIED',
+      duration_minutes: null,
+      urgency: urgensiManual,
+      priority: saranPriority(title).priority,
+      priority_source: 'SYSTEM',
+      ai_assumption: null,
+    };
+    try {
+      const tersimpan = await buatTask(payload);
+      setDaftar((d) => [...d, dariApi(tersimpan)]);
+      setJudulManual(''); setTanggalManual(''); setJamManual(''); setUrgensiManual('NORMAL');
+      tampilkanToast('Tugas tersimpan');
+    } catch (e) {
+      antrikan(payload, e);
+    }
   };
 
   const ubahPreview = (i, patch) => {
@@ -636,31 +655,57 @@ export default function App() {
               </div>
             </div>
             <section aria-label="Tulis tugas baru" className="kartu">
-              <label htmlFor="paragraf">Tulis tugas baru (Bahasa Indonesia)</label>
-              <textarea
-                id="paragraf"
-                rows={3}
-                value={paragraf}
-                onChange={(e) => setParagraf(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) susun();
-                }}
-                placeholder="Contoh: Rapat jam 9, lalu kirim laporan 30 menit lagi. Besok apel pukul 07.30"
-              />
-              <div className="baris">
-                <button type="button" onClick={susun} disabled={sibukSusun}>
-                  {sibukSusun ? 'Menyusun…' : 'Susun jadi tugas'}
+              <div className="baris-kepala">
+                <span className="judul-kartu">Tulis tugas baru</span>
+                <button type="button" className="tombol-ganti-mode" onClick={() => setManual((v) => !v)}>
+                  {manual ? 'Asisten' : 'Manual'}
                 </button>
-                <span className="badge" aria-live="polite">
-                  mode {mode === 'ai' ? 'AI' : 'lokal'}
-                </span>
               </div>
-              <p className="privasi">
-                Paragraf hanya dikirim ke AI saat tombol ditekan.{' '}
-                <button type="button" onClick={() => setPaksaLokal((v) => !v)}>
-                  {paksaLokal ? ' mode lokal saja (aktif)' : 'pakai mode lokal saja'}
-                </button>
-              </p>
+              {manual ? (
+                <div className="form-manual">
+                  <div className="bidang">
+                    <label htmlFor="judul-manual">Judul</label>
+                    <input id="judul-manual" type="text" value={judulManual}
+                      onChange={(e) => setJudulManual(e.target.value)} placeholder="Belikan galon air" />
+                  </div>
+                  <div className="bidang-ganda">
+                    <div className="bidang">
+                      <label htmlFor="tanggal-manual">Tanggal</label>
+                      <input id="tanggal-manual" type="date" value={tanggalManual}
+                        onChange={(e) => setTanggalManual(e.target.value)} />
+                      {tanggalManual && <p className="hari">{hariTanggal(tanggalManual)}</p>}
+                    </div>
+                    <div className="bidang">
+                      <label htmlFor="jam-manual">Jam</label>
+                      <input id="jam-manual" type="time" value={jamManual}
+                        onChange={(e) => setJamManual(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="bidang">
+                    <span className="label-bidang">Urgensi</span>
+                    <div className="grup-urgensi" role="group" aria-label="Urgensi">
+                      {[['URGENT', 'Penting'], ['NORMAL', 'Biasa'], ['LOW', 'Santai']].map(([nilai, teks]) => (
+                        <button key={nilai} type="button" aria-pressed={urgensiManual === nilai}
+                          onClick={() => setUrgensiManual(nilai)}>{teks}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <button type="button" onClick={simpanManual}>Tambah tugas</button>
+                </div>
+              ) : (
+                <>
+                  <textarea id="paragraf" aria-label="Tulis tugas baru" rows={3} value={paragraf}
+                    onChange={(e) => setParagraf(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) susun(); }}
+                    placeholder="Contoh: Rapat jam 9, lalu kirim laporan 30 menit lagi. Besok apel pukul 07.30" />
+                  <div className="baris">
+                    <button type="button" onClick={susun} disabled={sibukSusun}>
+                      {sibukSusun ? 'Menyusun…' : 'Susun jadi tugas'}
+                    </button>
+                    <p className="privasi">Paragraf hanya dikirim ke AI saat tombol ditekan.</p>
+                  </div>
+                </>
+              )}
               <div className="baris">
                 <button type="button" onClick={mintaIzinNotifikasi}>
                   Aktifkan notifikasi

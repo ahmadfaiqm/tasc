@@ -343,3 +343,31 @@ button.avatar:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 
 }
 .baris-profil .privasi { margin: 0.1rem 0 0; font-size: 12px; }
 .nilai-email { margin: 0 0 0.4rem; font-size: 14px; }
+
+/* Kartu tulis: kepala (judul + switch mode) dan form Manual. */
+.baris-kepala { display: flex; justify-content: space-between; align-items: center; gap: 0.8rem; margin-bottom: 0.9rem; }
+.judul-kartu { font-family: var(--font-judul); font-size: 15px; font-weight: 600; color: var(--ink); }
+.tombol-ganti-mode {
+  background: var(--sf); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 999px; padding: 0.4rem 0.95rem; font-size: 12.5px; font-weight: 600;
+  white-space: nowrap;
+}
+.tombol-ganti-mode:hover:not(:disabled) { border-color: var(--mute); }
+.form-manual { display: grid; gap: 0.9rem; margin-bottom: 0.4rem; }
+.bidang { display: grid; gap: 0.35rem; }
+.bidang label, .bidang .label-bidang {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--mute);
+}
+.bidang input[type="date"], .bidang input[type="time"] { font-family: var(--font-judul); }
+.bidang-ganda { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; }
+@media (max-width: 560px) { .bidang-ganda { grid-template-columns: 1fr; } }
+.hari { margin: 0; font-size: 12px; color: var(--mute); }
+.grup-urgensi { display: inline-flex; gap: 0.4rem; flex-wrap: wrap; }
+.grup-urgensi button {
+  background: var(--sf); color: var(--mute); border: 1px solid var(--line);
+  border-radius: 999px; padding: 0.4rem 0.95rem; font-size: 12.5px;
+}
+.grup-urgensi button[aria-pressed="true"] {
+  background: var(--ink); color: var(--card); border-color: var(--ink); font-weight: 700;
+}

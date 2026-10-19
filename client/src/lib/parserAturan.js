@@ -1,7 +1,7 @@
 // client/src/lib/parserAturan.js
 // Rewrite PRD: no-fake-time. Tanpa jam -> due_time null + UNSPECIFIED.
 
-export const REMINDER_MIN = 5;
+export const REMINDER_MIN = 30;
 
 const HARI_IDX = {
   minggu: 0, ahad: 0, senin: 1, selasa: 2, rabu: 3, kamis: 4, 'jumat': 5, sabtu: 6,
@@ -215,9 +215,9 @@ export function saranUrutan(tasks, now = new Date()) {
       }
       urgency = tentukanUrgency(penuh ?? new Date(8640000000000000), now);
     }
-    // normalisasi urgensi lama bila ada
-    if (urgency === 'Mendesak') urgency = 'URGENT';
-    else if (urgency === 'Sedang') urgency = 'NORMAL';
+    // normalisasi urgensi lama/teks bebas bila ada
+    if (urgency === 'Mendesak' || urgency === 'Penting') urgency = 'URGENT';
+    else if (urgency === 'Sedang' || urgency === 'Biasa') urgency = 'NORMAL';
     else if (urgency === 'Santai') urgency = 'LOW';
     return { ...t, priority, urgency };
   });

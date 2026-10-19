@@ -14,7 +14,7 @@ export default function Ringkasan({ bento }) {
             <strong>{bento?.selesaiX ?? 0}</strong>Selesai
           </span>
           <span>
-            <strong>{bento?.mendesak ?? 0}</strong>Mendesak
+            <strong>{bento?.mendesak ?? 0}</strong>Penting
           </span>
           <span>
             <strong>{bento?.aktif ?? 0}</strong>Aktif

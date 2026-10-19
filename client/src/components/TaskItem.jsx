@@ -14,8 +14,8 @@ function selesai(tugas) {
 
 function urgensi(tugas) {
   const u = tugas.urgency ?? tugas.urgensi ?? 'LOW';
-  if (u === 'Mendesak') return 'URGENT';
-  if (u === 'Sedang') return 'NORMAL';
+  if (u === 'Mendesak' || u === 'Penting') return 'URGENT';
+  if (u === 'Sedang' || u === 'Biasa') return 'NORMAL';
   if (u === 'Santai') return 'LOW';
   return u;
 }
@@ -85,8 +85,8 @@ function tampilWaktu(tugas) {
 const LENCANA = { URGENT: 'lencana-urgent', NORMAL: 'lencana-normal', LOW: 'lencana-low' };
 
 const PILIHAN_URGENSI = [
-  { nilai: 'URGENT', teks: 'Mendesak' },
-  { nilai: 'NORMAL', teks: 'Sedang' },
+  { nilai: 'URGENT', teks: 'Penting' },
+  { nilai: 'NORMAL', teks: 'Biasa' },
   { nilai: 'LOW', teks: 'Santai' },
 ];
 
