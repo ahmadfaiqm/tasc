@@ -3,7 +3,7 @@
 // Token dari sesi Auth Supabase, fallback localStorage `taskman:token` (diisi saat login).
 import { supabase } from './supabase.js';
 
-export const AI_TIMEOUT_MS = 8000;
+export const AI_TIMEOUT_MS = 20000;
 const API_TIMEOUT_MS = 20000;
 
 const KUNCI_TOKEN = 'taskman:token';

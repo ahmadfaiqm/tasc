@@ -6,8 +6,12 @@ import { normalisasiTugas } from '../lib/normalisasi.js';
 
 // Token uji di sini mengandalkan jalur decode-dev (tanpa verifikasi HMAC).
 // .env lokal memuat SUPABASE_JWT_SECRET; hapus agar hasil tes tak bergantung env.
+// AI_* juga dihapus agar tes tak menembak jaringan penyedia LLM sungguhan.
 beforeEach(() => {
   delete process.env.SUPABASE_JWT_SECRET;
+  delete process.env.AI_PROVIDER;
+  delete process.env.AI_KEY;
+  delete process.env.AI_MODEL;
 });
 
 const b64 = (obj) => Buffer.from(JSON.stringify(obj)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');

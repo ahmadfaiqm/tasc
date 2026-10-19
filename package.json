@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
+    "dev": "node dev.mjs",
     "dev:client": "npm --prefix client run dev",
     "dev:api": "npm --prefix api run dev",
     "test:all": "npm --prefix client run test -- --run && npm --prefix api run test -- --run"

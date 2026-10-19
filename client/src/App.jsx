@@ -145,6 +145,17 @@ function kePayload(k) {
   };
 }
 
+// Terjemahkan galat panggilanApi menjadi sebab yang bisa ditindaklanjuti.
+function sebabGagal(e) {
+  const m = String(e?.message ?? '');
+  if (m === 'api-401' || m === 'api-403') return 'sesi login tidak dikenali — masuk ulang';
+  if (m === 'api-400') return 'data ditolak server';
+  if (m === 'api-404') return 'endpoint API tidak ditemukan — server belum jalan?';
+  if (m.startsWith('api-5')) return `kesalahan server (${m})`;
+  if (m.startsWith('api-')) return m;
+  return 'server tidak terjangkau — API belum jalan?';
+}
+
 export default function App() {
   const [paragraf, setParagraf] = useState('');
   const [daftar, setDaftar] = useState([]);
@@ -404,14 +415,15 @@ export default function App() {
       const tersimpan = await buatTask(payload);
       setDaftar((d) => [...d, dariApi(tersimpan)]);
       tampilkanToast('Tugas tersimpan');
-    } catch {
+    } catch (e) {
+      console.error('buatTask gagal:', e);
       const antri = muat(KUNCI_ANTRI, []);
       antri.push(payload);
       try {
         localStorage.setItem(KUNCI_ANTRI, JSON.stringify(antri));
       } catch { /* abaikan */ }
       setBelumSinkron(true);
-      tampilkanToast('Gagal menyimpan — masuk antrean, retry otomatis');
+      tampilkanToast(`Gagal menyimpan (${sebabGagal(e)}) — masuk antrean, retry otomatis`);
       return;
     }
     setPreview((p) => p.filter((_, x) => x !== i));
