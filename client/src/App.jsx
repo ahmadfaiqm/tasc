@@ -690,7 +690,10 @@ export default function App() {
                       ))}
                     </div>
                   </div>
-                  <button type="button" onClick={simpanManual}>Tambah tugas</button>
+                  <div className="baris">
+                    <button type="button" onClick={simpanManual}>Tambah tugas</button>
+                    <p className="privasi">Tugas langsung masuk daftar.</p>
+                  </div>
                 </div>
               ) : (
                 <>

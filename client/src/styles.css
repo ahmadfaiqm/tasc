@@ -41,7 +41,8 @@ button, input, textarea, select { font: inherit; }
 .mikro { color: var(--mute); }
 .mikro::before { content: "• "; }
 textarea:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
-textarea, input[type="email"], input[type="password"], input[type="text"] {
+textarea, input[type="email"], input[type="password"], input[type="text"],
+input[type="date"], input[type="time"] {
   width: 100%; padding: 0.7rem 1rem; border-radius: 16px;
   border: 1px solid var(--line); background: var(--sf); color: var(--ink);
   font-family: var(--font-judul); font-size: 14px;
@@ -270,6 +271,7 @@ section[aria-label="Pratinjau tugas"].kartu .pratinjau-waktu {
 }
 .kartu.asisten input,
 section[aria-label="Tulis tugas baru"].kartu textarea,
+section[aria-label="Tulis tugas baru"].kartu input,
 section[aria-label="Pratinjau tugas"].kartu input {
   background: rgba(255, 255, 255, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.6);
@@ -346,28 +348,32 @@ button.avatar:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 
 
 /* Kartu tulis: kepala (judul + switch mode) dan form Manual. */
 .baris-kepala { display: flex; justify-content: space-between; align-items: center; gap: 0.8rem; margin-bottom: 0.9rem; }
-.judul-kartu { font-family: var(--font-judul); font-size: 15px; font-weight: 600; color: var(--ink); }
+.judul-kartu { font-family: var(--font-judul); font-size: 15px; font-weight: 600; color: #000; }
 .tombol-ganti-mode {
-  background: var(--sf); color: var(--ink); border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.55); color: #000; border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 999px; padding: 0.4rem 0.95rem; font-size: 12.5px; font-weight: 600;
   white-space: nowrap;
 }
-.tombol-ganti-mode:hover:not(:disabled) { border-color: var(--mute); }
+.tombol-ganti-mode:hover:not(:disabled) { border-color: rgba(0, 0, 0, 0.35); }
 .form-manual { display: grid; gap: 0.9rem; margin-bottom: 0.4rem; }
 .bidang { display: grid; gap: 0.35rem; }
 .bidang label, .bidang .label-bidang {
   font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
-  text-transform: uppercase; color: var(--mute);
+  text-transform: uppercase; color: #000;
 }
 .bidang input[type="date"], .bidang input[type="time"] { font-family: var(--font-judul); }
 .bidang-ganda { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; }
 @media (max-width: 560px) { .bidang-ganda { grid-template-columns: 1fr; } }
-.hari { margin: 0; font-size: 12px; color: var(--mute); }
-.grup-urgensi { display: inline-flex; gap: 0.4rem; flex-wrap: wrap; }
+.hari { margin: 0; font-size: 12px; }
+section[aria-label="Tulis tugas baru"].kartu .hari { color: rgba(0, 0, 0, 0.55); }
+/* Urgensi: segmented control senada tab login (satu pil, segmen aktif gelap). */
+.grup-urgensi {
+  display: inline-flex; width: fit-content; padding: 4px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55); border: 1px solid rgba(255, 255, 255, 0.6);
+}
 .grup-urgensi button {
-  background: var(--sf); color: var(--mute); border: 1px solid var(--line);
-  border-radius: 999px; padding: 0.4rem 0.95rem; font-size: 12.5px;
+  background: transparent; color: rgba(0, 0, 0, 0.6); border: none;
+  border-radius: 999px; padding: 0.4rem 1.1rem; font-size: 12.5px; font-weight: 600;
 }
-.grup-urgensi button[aria-pressed="true"] {
-  background: var(--ink); color: var(--card); border-color: var(--ink); font-weight: 700;
-}
+.grup-urgensi button:hover:not(:disabled) { transform: none; }
+.grup-urgensi button[aria-pressed="true"] { background: #101114; color: #f3f3f0; }
