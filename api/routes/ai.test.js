@@ -10,7 +10,8 @@ beforeEach(() => {
   delete process.env.SUPABASE_JWT_SECRET;
 });
 
-const token = `a.${Buffer.from(JSON.stringify({ sub: '00000000-0000-0000-0000-000000000000' })).toString('base64')}.c`;
+const b64 = (obj) => Buffer.from(JSON.stringify(obj)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const token = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: '00000000-0000-0000-0000-000000000000' })}.c`;
 const auth = { Authorization: `Bearer ${token}` };
 const nowISO = new Date('2026-10-07T08:00:00+07:00').toISOString();
 
