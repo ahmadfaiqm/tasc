@@ -11,3 +11,16 @@ describe('mintaParse JWT', () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe('basisApi', () => {
+  it('menghapus trailing slash dari VITE_API_URL', async () => {
+    let url;
+    vi.stubEnv('VITE_API_URL', 'http://localhost:3001/');
+    vi.stubGlobal('fetch', (u) => { url = u; return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('{}') }); });
+    vi.stubGlobal('localStorage', { getItem: () => '' });
+    await mintaParse('halo');
+    expect(url).toBe('http://localhost:3001/api/ai/parse');
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+});

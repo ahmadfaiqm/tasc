@@ -9,7 +9,7 @@ const API_TIMEOUT_MS = 20000;
 const KUNCI_TOKEN = 'taskman:token';
 
 function basisApi() {
-  return import.meta.env.VITE_API_URL ?? '';
+  return (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
 }
 
 export async function ambilToken() {
