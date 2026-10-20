@@ -233,8 +233,16 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 /* Panel masukan cepat. */
 .daftar-masukan { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
-.daftar-masukan button { width: 100%; text-align: left; background: var(--sf); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 0.55rem 0.8rem; font-family: inherit; font-size: 13px; letter-spacing: normal; text-transform: none; }
-.daftar-masukan button:hover { border-color: var(--ink); }
+.daftar-masukan button {
+  width: 100%; text-align: left;
+  background: rgba(255, 255, 255, 0.5);
+  color: #000;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  font-family: inherit; font-size: 13px; letter-spacing: normal; text-transform: none;
+}
+.daftar-masukan button:hover { border-color: rgba(0, 0, 0, 0.35); }
 
 /* Jarak antar section: asisten vs create new task vs pratinjau. */
 #bagian-tugas > * { margin-bottom: 1.1rem; }
@@ -242,8 +250,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 #asisten { display: grid; gap: 1.1rem; align-content: start; }
 #asisten > * { margin: 0; }
 
-/* Glassmorphism: asisten + create new task + pratinjau, font hitam. */
+/* Glassmorphism: masukan cepat + asisten + create new task + pratinjau, font hitam. */
 .kartu.asisten,
+section[aria-label="Masukan cepat"].kartu,
 section[aria-label="Tulis tugas baru"].kartu,
 section[aria-label="Pratinjau tugas"].kartu {
   background: rgba(255, 255, 255, 0.35);
@@ -258,6 +267,9 @@ section[aria-label="Pratinjau tugas"].kartu {
 .kartu.asisten label,
 .kartu.asisten .privasi,
 .kartu.asisten .balon.ai,
+section[aria-label="Masukan cepat"].kartu h3,
+section[aria-label="Masukan cepat"].kartu p,
+section[aria-label="Masukan cepat"].kartu .privasi,
 section[aria-label="Tulis tugas baru"].kartu label,
 section[aria-label="Tulis tugas baru"].kartu p,
 section[aria-label="Tulis tugas baru"].kartu .privasi,
