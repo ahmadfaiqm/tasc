@@ -28,3 +28,6 @@ Thumbs.db
 
 # Worktrees lokal
 .worktrees/
+
+# State & mockup superpowers (lokal)
+.superpowers/
