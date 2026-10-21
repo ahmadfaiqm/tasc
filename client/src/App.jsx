@@ -25,7 +25,6 @@ import TaskList from './components/TaskList.jsx';
 import Preview from './components/Preview.jsx';
 import History from './components/History.jsx';
 import AssistantBox from './components/AssistantBox.jsx';
-import SaranUrutan from './components/SaranUrutan.jsx';
 import Toast from './components/Toast.jsx';
 
 export const UNDO_MS = 8000;
@@ -644,13 +643,12 @@ export default function App() {
           <>
             {belumSinkron && <p className="banner">Belum tersinkron — perubahan disimpan lokal, retry otomatis.</p>}
             <div className="panel-tiga">
-              <Ringkasan bento={bento} />
+              <Ringkasan bento={bento} saran={saran} onPilih={pilihSaran} />
               <section aria-label="Task terdekat" className="kartu panel-tengah">
                 <h3>Task terdekat</h3>
                 <TaskList daftar={daftar} onUbah={ubah} onHapus={hapus} onToggle={toggle} onTanya={(t) => pilihSaran(`Tanya soal: ${t.title ?? t.nama ?? ''}`)} />
               </section>
               <div id="asisten">
-                <SaranUrutan saran={saran} onPilih={pilihSaran} />
                 <AssistantBox pesanAwal={prefillAsisten} />
               </div>
             </div>

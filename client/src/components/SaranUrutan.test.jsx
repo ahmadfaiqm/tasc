@@ -11,4 +11,10 @@ describe('SaranUrutan', () => {
     fireEvent.click(screen.getByRole('button', { name: /laporan/i }));
     expect(onPilih).toHaveBeenCalledTimes(1);
   });
+
+  it('tanpa saran tetap menampilkan kartu dengan ajakan', () => {
+    render(<SaranUrutan saran={{ pertama: '', alasan: '', kedua: '', sisa: [] }} />);
+    expect(screen.getByRole('heading', { name: /masukan cepat/i })).toBeTruthy();
+    expect(screen.getByText(/tambahkan task nanti aku bantu saranin/i)).toBeTruthy();
+  });
 });

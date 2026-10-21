@@ -21,7 +21,9 @@ vi.mock('./lib/supabase.js', () => ({
 
 vi.mock('./lib/api.js', () => ({
   mintaParse: vi.fn(async () => ({
-    tasks: [{ title: 'Rapat', due_date: '2026-10-20', due_time: null, time_precision: 'UNSPECIFIED', urgency: 'NORMAL', priority: 'MEDIUM' }],
+    // Tanpa tenggat: task hasil parse tidak boleh kena auto-hapus 1 dtk di App
+    // (dulu bertanggal 2026-10-20 sehingga tes flaky begitu tanggal lewat).
+    tasks: [{ title: 'Rapat', due_date: null, due_time: null, time_precision: 'UNSPECIFIED', urgency: 'NORMAL', priority: 'MEDIUM' }],
     sumber: 'ai',
   })),
   muatTasks: vi.fn(async () => ({ tasks: [] })),
@@ -40,6 +42,23 @@ vi.mock('./lib/api.js', () => ({
 
 if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
+}
+
+// Tanggal relatif waktu nyata: seminggu ke depan agar timer auto-hapus tugas
+// lewat waktu tidak ikut jalan saat tes.
+function tanggalMasaDepan(hari = 7) {
+  const d = new Date();
+  d.setDate(d.getDate() + hari);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+// Label hari yang diharapkan, dihitung terpisah dari komponen.
+function labelHari(ymd) {
+  const [y, bl, hr] = ymd.split('-').map(Number);
+  return new Intl.DateTimeFormat('id-ID', {
+    weekday: 'long', day: 'numeric', month: 'short', year: 'numeric',
+  }).format(new Date(y, bl - 1, hr));
 }
 
 afterEach(cleanup);
@@ -73,6 +92,19 @@ describe('App core flow', () => {
     expect(api.buatTask).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('checkbox', { name: /tandai selesai: rapat/i }));
     await waitFor(() => expect(api.selesaikanTask).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe('tata letak masukan cepat', () => {
+  it('tampil di bawah kartu aktivitas walau belum ada tugas', async () => {
+    await masukLanding();
+    const panel = document.querySelector('.panel-kiri');
+    const aktivitas = panel?.querySelector('.kartu-aktivitas');
+    const masukan = panel?.querySelector('section[aria-label="Masukan cepat"]');
+    expect(aktivitas).toBeTruthy();
+    expect(masukan).toBeTruthy();
+    expect(aktivitas.compareDocumentPosition(masukan) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText(/tambahkan task nanti aku bantu saranin/i)).toBeTruthy();
   });
 });
 
@@ -142,18 +174,19 @@ describe('mode tugas (Asisten / Manual)', () => {
 
   it('mode manual: tanggal memunculkan hari, lalu menambah tugas', async () => {
     const api = await import('./lib/api.js');
+    const tanggal = tanggalMasaDepan();
     await masukLanding();
     fireEvent.click(screen.getByRole('button', { name: /^manual$/i }));
     fireEvent.change(screen.getByLabelText(/^judul$/i), { target: { value: 'Belikan galon air' } });
-    fireEvent.change(screen.getByLabelText(/^tanggal$/i), { target: { value: '2026-10-19' } });
-    expect(screen.getByText(/senin, 19 okt 2026/i)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(/^tanggal$/i), { target: { value: tanggal } });
+    expect(screen.getByText(labelHari(tanggal))).toBeTruthy();
     fireEvent.change(screen.getByLabelText(/^jam$/i), { target: { value: '09:00' } });
     fireEvent.click(screen.getByRole('button', { name: /^penting$/i }));
     fireEvent.click(screen.getByRole('button', { name: /tambah tugas/i }));
     await waitFor(() => expect(api.buatTask).toHaveBeenCalledTimes(1));
     expect(api.buatTask.mock.calls[0][0]).toMatchObject({
       title: 'Belikan galon air',
-      due_date: '2026-10-19',
+      due_date: tanggal,
       due_time: '09:00',
       urgency: 'URGENT',
     });

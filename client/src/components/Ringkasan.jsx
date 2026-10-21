@@ -1,6 +1,9 @@
 // client/src/components/Ringkasan.jsx
-// Panel kiri landing: konteks, angka produktivitas besar, kartu aktivitas kuning.
-export default function Ringkasan({ bento }) {
+// Panel kiri landing: konteks, angka produktivitas besar, kartu aktivitas kuning,
+// lalu masukan cepat (selalu tampil; sarannya muncul setelah ada tugas).
+import SaranUrutan from './SaranUrutan.jsx';
+
+export default function Ringkasan({ bento, saran, onPilih }) {
   const persen = bento?.selesaiPersen ?? 0;
   return (
     <section aria-label="Produktivitas" className="panel-kiri">
@@ -21,6 +24,7 @@ export default function Ringkasan({ bento }) {
           </span>
         </div>
       </div>
+      <SaranUrutan saran={saran} onPilih={onPilih} />
     </section>
   );
 }
